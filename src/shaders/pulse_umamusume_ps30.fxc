@@ -1,0 +1,259 @@
+// STATIC:  "FACE"                      "0..1"
+// STATIC:  "OUTLINE"                   "0..1"
+// STATIC:  "DETAILTEXTURE"             "0..1"
+// STATIC:  "FLASHLIGHT"                "0..1"
+// STATIC:  "FLASHLIGHTDEPTHFILTERMODE" "0..2"
+// DYNAMIC: "NUM_LIGHTS"                "0..4"
+// DYNAMIC: "WRITEWATERFOGTODESTALPHA"  "0..1"
+// DYNAMIC: "WRITE_DEPTH_TO_DESTALPHA"  "0..1"
+// DYNAMIC: "PIXELFOGTYPE"              "0..1"
+// DYNAMIC: "FLASHLIGHTSHADOWS"         "0..1"
+
+// SKIP: ($OUTLINE == 1) && ($FLASHLIGHT == 1)
+// SKIP: ($FLASHLIGHT == 0) && ($FLASHLIGHTSHADOWS == 1)
+// SKIP: ($FLASHLIGHT == 0) && ($FLASHLIGHTDEPTHFILTERMODE != 0)
+
+#include "common_ps_fxc.h"
+#include "common_flashlight_fxc.h"
+#include "common_vertexlitgeneric_dx9.h"
+#include "shader_constant_register_map.h"
+
+const float4 g_FogParams : register(PSREG_FOG_PARAMS);
+const float4 g_EyePos : register(PSREG_EYEPOS_SPEC_EXPONENT);
+const float4 g_BaseColor : register(PSREG_SELFILLUMTINT);
+const float4 g_Highlight : register(c3);
+const float4 g_Specular : register(c10);
+const float4 g_AoAndOutline : register(c26);
+const float4 g_OutlineColor : register(c46);
+const float4 g_DetailColor : register(c47);
+const float4 g_DetailParams : register(c48);
+const float4 g_BaseColor2 : register(c49);
+const float4 g_ReflectionAdd : register(c50);
+const float4 g_ReflectionMultiply : register(c51);
+PixelShaderLightInfo cLightInfo[3] : register(PSREG_LIGHT_INFO_ARRAY);
+float3 cAmbientCube[6] : register(PSREG_AMBIENT_CUBE);
+
+#if FLASHLIGHT
+const float4 g_FlashlightAttenuationFactors : register(PSREG_FLASHLIGHT_ATTENUATION);
+const float4 g_FlashlightPos : register(PSREG_FLASHLIGHT_POSITION_RIM_BOOST);
+const float4x4 g_FlashlightWorldToTexture : register(PSREG_FLASHLIGHT_TO_WORLD_TEXTURE);
+const float4 g_FlashlightColor : register(PSREG_FLASHLIGHT_COLOR);
+const float4 g_ShadowTweaks : register(PSREG_ENVMAP_TINT__SHADOW_TWEAKS);
+#endif
+
+sampler BaseSampler : register(s0);
+sampler ToonSampler : register(s1);
+sampler TripleMaskSampler : register(s2);
+sampler OptionMaskSampler : register(s3);
+sampler DetailSampler : register(s7);
+sampler ReflectionSampler : register(s8);
+#if FLASHLIGHT
+sampler FlashlightSampler : register(s4);
+sampler ShadowDepthSampler : register(s5);
+sampler RandRotSampler : register(s6);
+#endif
+
+#include "npr_common_ps3_x.h"
+
+// Both overlays trip at the original's 1 - 0.775 coverage. The threshold has to stay
+// fixed: the forehead sits just under it, and lowering it floods the whole bangs region.
+static const float NPR_FACE_PRETENSE = 0.225;
+static const float3 NPR_LUMA = float3(0.2125, 0.7154, 0.0721);
+
+#if FACE
+// The ambient cube's opposing faces differ by however much the probe leans one way,
+// so their signed luminance difference is a direction already weighted by strength.
+float3 NPRAmbientCubeDirection(float3 cube[6])
+{
+	return float3(dot(cube[0] - cube[1], NPR_LUMA),
+		dot(cube[2] - cube[3], NPR_LUMA),
+		dot(cube[4] - cube[5], NPR_LUMA));
+}
+#endif
+
+struct PS_INPUT
+{
+	float2 texCoord    : TEXCOORD0;
+	float4 lightAtten  : TEXCOORD1;
+	float3 worldNormal : TEXCOORD2;
+	float3 worldPos    : TEXCOORD3;
+	float3 projPos     : TEXCOORD4;
+	float2 detailCoord : TEXCOORD5;
+	float3 viewNormal  : TEXCOORD6;
+#if FACE
+	float3 faceForward : TEXCOORD7;
+	float3 faceUp      : TEXCOORD8;
+#endif
+};
+
+float3 ShadeSurface(float3 baseColor, float3 toonColor, float4 tripleMask, float4 optionMask,
+	float3 normal, float3 viewDirection, float3 lightDirection,
+	float3 faceForward, float3 faceUp, float faceSide)
+{
+	float nDotL = dot(normal, lightDirection);
+
+#if FACE
+	// The face terminator is half lambert scaled by AOHA red, which reads 0 across the strip
+	// the bangs cover and bakes that shadow in. 0.5 is the reference's own step.
+	float edge = tripleMask.r * (nDotL * 0.5 + 0.5) - 0.5;
+	float3 shaded = lerp(toonColor, baseColor, NPRCelStep(edge));
+
+	// AOHA green marks two overlay regions instead of shading: above 0.51 the cheek, below
+	// 0.49 the nose. Each is painted lit or shadowed by whether the light shares the pixel's
+	// side of the head, which is what stops them mirroring onto both cheeks at once.
+	float sameSide = step(0.0, dot(lightDirection, cross(faceUp, faceForward)) * faceSide);
+	float shadowed = saturate(-edge * 20.0);
+
+	// The cheek wing only reads once the light is behind the head, peaking around 66 degrees
+	// off and fading out as the light drops below eye level.
+	float backlight = max(0.0, dot(faceForward, -lightDirection) + 0.1);
+	float above = 1.0 + min(0.0, dot(faceUp, lightDirection));
+	// $facecheekspread widens the angular window instead of the mask, so the wing starts
+	// earlier without admitting texels the original excludes. Saturating caps it at the
+	// window's own peak, which keeps the forehead's 0.22 ceiling below the threshold.
+	float cheekLight = saturate(g_AoAndOutline.z * max(0.0, 1.0 - 2.0 * abs(0.5 - backlight)))
+		* above * above;
+	float cheek = step(NPR_FACE_PRETENSE, 2.0 * max(0.0, tripleMask.g - 0.51) * shadowed * cheekLight);
+
+	// The nose wedges need the light off the face's axis, and only the deepest of them clear
+	// the threshold, so the ridge between them stays shaded normally and reads as a highlight.
+	float noseLight = saturate(2.0 * (1.0 - abs(dot(faceForward, lightDirection))));
+	float nose = step(NPR_FACE_PRETENSE, (1.0 - 2.0 * min(0.49, tripleMask.g)) * noseLight);
+
+	shaded = lerp(shaded, lerp(baseColor, toonColor, sameSide), cheek);
+	return lerp(shaded, lerp(toonColor, baseColor, sameSide), nose);
+#else
+	float aoMask = lerp(1.0, tripleMask.r, g_AoAndOutline.x);
+	float edge = 0.4 - nDotL * aoMask;
+	float lit = 1.0 - NPRCelStep(edge);
+	float3 shadowColor = toonColor + tripleMask.g * 0.21;
+	float3 litColor = baseColor + baseColor * tripleMask.g * g_Highlight.a * g_Highlight.rgb;
+	float specularMask = optionMask.g * optionMask.b;
+	float specularStep = step(g_Specular.x * 0.1, nDotL * dot(normal, viewDirection));
+	float specular = smoothstep(0.0, max(g_Specular.y, 0.0001), specularStep);
+	float3 specularColor = toonColor * toonColor * baseColor * baseColor;
+	return lerp(shadowColor, litColor, lit) + specularColor * specularMask * g_Specular.z * specular;
+#endif
+}
+
+float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
+{
+	float4 baseSample = tex2D(BaseSampler, i.texCoord);
+	float4 toonSample = tex2D(ToonSampler, i.texCoord);
+	float baseAlpha = baseSample.a;
+#if DETAILTEXTURE
+	float4 detailSample = tex2D(DetailSampler, i.detailCoord);
+	detailSample.rgb *= g_DetailColor.rgb;
+	baseSample = TextureCombine(baseSample, detailSample, (int)g_DetailParams.x, g_DetailColor.a);
+	toonSample = TextureCombine(toonSample, detailSample, (int)g_DetailParams.x, g_DetailColor.a);
+#endif
+	float4 tripleMask = tex2D(TripleMaskSampler, i.texCoord);
+	float4 optionMask = tex2D(OptionMaskSampler, i.texCoord);
+#if FACE
+	float opacity = baseAlpha;
+#else
+	float opacity = lerp(baseAlpha, tripleMask.b, g_BaseColor2.a);
+#endif
+
+#if OUTLINE
+	clip(-faceSign);
+	float3 normal = normalize(i.worldNormal);
+	float3 lighting = PixelShaderAmbientLight(normal, cAmbientCube);
+	// The reference tints the hull from the shadow texture rather than lighting a flat colour,
+	// so the outline tracks the surface it borders instead of sitting at a fixed value.
+	float3 outlineTint = saturate(g_OutlineColor.rgb);
+	float3 outlineBase = lerp(outlineTint,
+		baseSample.rgb * toonSample.rgb * 0.5 * outlineTint, g_AoAndOutline.y);
+	float3 color = outlineBase * saturate(lighting);
+#else
+	float3 normal = normalize(i.worldNormal);
+	float3 viewDirection = normalize(g_EyePos.xyz - i.worldPos);
+#if FACE
+	float3 faceForward = normalize(i.faceForward);
+	float3 faceUp = normalize(i.faceUp);
+	// The Cygames face UV is shared across characters and mirrors exactly about u=0.5
+	// wherever the masks sit, so it is the head's left/right split. Positive is left.
+	float faceSide = i.texCoord.x - 0.5;
+#else
+	float3 faceForward = 0.0;
+	float3 faceUp = 0.0;
+	float faceSide = 0.0;
+#endif
+	float3 baseColor = baseSample.rgb * g_BaseColor.rgb * g_BaseColor2.rgb;
+	float3 toonColor = toonSample.rgb * g_BaseColor.rgb * g_BaseColor2.rgb;
+	float3 color = 0.0;
+
+#if FLASHLIGHT
+	float3 flashlightDirection;
+	float3 intensity = NPRFlashlightIntensity(i.worldPos, i.projPos, flashlightDirection);
+	color = ShadeSurface(baseColor, toonColor, tripleMask, optionMask, normal, viewDirection,
+		flashlightDirection, faceForward, faceUp, faceSide) * intensity;
+#else
+#if FACE
+	// One lighting sample for the whole head. A per-pixel cube lookup gradients across
+	// the flat cel regions the masks are authored to produce.
+	float3 ambient = (cAmbientCube[0] + cAmbientCube[1] + cAmbientCube[2]
+		+ cAmbientCube[3] + cAmbientCube[4] + cAmbientCube[5]) / 6.0;
+#else
+	float3 ambient = PixelShaderAmbientLight(normal, cAmbientCube);
+#endif
+#if NUM_LIGHTS == 0
+	ambient = max(ambient, g_Specular.w);
+#endif
+	float3 effectLighting = ambient;
+#if FACE
+	// The face masks are authored against a single directional light, so one key light
+	// drives them. Picking the strongest beats averaging directions, which would aim the
+	// terminator between two lights where neither is, and cancel when they oppose.
+	float3 keyDirection = 0.0;
+	float keyScore = 0.0;
+#else
+	color = toonColor * ambient;
+#endif
+	for (int lightIndex = 0; lightIndex < NUM_LIGHTS; ++lightIndex)
+	{
+		float3 lightDirection = normalize(PixelShaderGetLightVector(i.worldPos, cLightInfo, lightIndex));
+		float3 lightColor = PixelShaderGetLightColor(cLightInfo, lightIndex)
+			* NPRGetLightAtten(i.lightAtten, lightIndex) * NPR_LIGHT_SCALE;
+		effectLighting += lightColor;
+#if FACE
+		float score = max(lightColor.r, max(lightColor.g, lightColor.b));
+		if (score > keyScore)
+		{
+			keyScore = score;
+			keyDirection = lightDirection;
+		}
+#else
+		color += ShadeSurface(baseColor, toonColor, tripleMask, optionMask, normal, viewDirection,
+			lightDirection, faceForward, faceUp, faceSide) * lightColor;
+#endif
+	}
+#if FACE
+	// No direct light leaves only the probe's lean; a flat probe leaves nothing at all,
+	// and overhead then reads as neutral studio lighting.
+	if (keyScore <= 0.0)
+	{
+		float3 lean = NPRAmbientCubeDirection(cAmbientCube);
+		float leanLength = length(lean);
+		keyDirection = leanLength > 1e-5 ? lean / leanLength : faceUp;
+	}
+	color = ShadeSurface(baseColor, toonColor, tripleMask, optionMask, normal, viewDirection,
+		keyDirection, faceForward, faceUp, faceSide) * effectLighting;
+#else
+	float effectVisibility = saturate(max(effectLighting.r, max(effectLighting.g, effectLighting.b)));
+	float rimEdge = saturate(dot(normal, viewDirection)) - g_DetailParams.z;
+	float rim = 1.0 - NPRCelStep(rimEdge);
+	color += baseColor * g_Highlight.rgb * optionMask.b * g_DetailParams.w * rim * effectVisibility;
+	float2 reflectionCoord = normalize(i.viewNormal).xy * 0.5 + 0.5;
+	float2 reflection = tex2D(ReflectionSampler, reflectionCoord).rg;
+	float reflectionMask = saturate(optionMask.r * g_ReflectionAdd.a) * effectVisibility;
+	color = color * lerp(1.0, reflection.g * g_ReflectionMultiply.rgb, reflectionMask)
+		+ reflection.r * g_ReflectionAdd.rgb * reflectionMask;
+#endif
+#endif
+#endif
+
+	float translucentOpacity = opacity * g_BaseColor.a;
+	float alpha = lerp(opacity, translucentOpacity, g_DetailParams.y);
+	return NPRFinalOutput(color, alpha, i.worldPos, i.projPos);
+}

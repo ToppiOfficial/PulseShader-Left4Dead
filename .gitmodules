@@ -1,0 +1,3 @@
+[submodule "sdk/alienswarm-sdk"]
+	path = sdk/alienswarm-sdk
+	url = https://github.com/PANCHO7532/alienswarm-sdk.git

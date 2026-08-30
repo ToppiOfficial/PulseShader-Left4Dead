@@ -1,0 +1,195 @@
+//==================================================================================================
+//
+// Physically Based Rendering vertex shader for brushes and models
+//
+//==================================================================================================
+
+//  DYNAMIC: "COMPRESSED_VERTS"         "0..1"
+//  DYNAMIC: "DOWATERFOG"               "0..1"
+//  DYNAMIC: "SKINNING"                 "0..1"
+//  DYNAMIC: "LIGHTING_PREVIEW"         "0..1"
+//  DYNAMIC: "NUM_LIGHTS"               "0..4"
+//  STATIC:  "FACE"                     "0..1"
+//  STATIC:  "OUTLINE"                  "0..1"
+//  STATIC:  "HAIRSHADOWPASS"           "0..1"
+//  STATIC:  "EYELID"                   "0..1"
+
+//  SKIP: ( $EYELID == 1 ) && ( $OUTLINE == 1 )
+//  SKIP: ( $EYELID == 1 ) && ( $HAIRSHADOWPASS == 1 )
+
+#include "common_vs_fxc.h"
+#include "pulse_outline_vs30.h"
+
+// The outline hull and the stencil caster shade nothing - the outline reads
+// only the base map and normal, the caster returns a constant. Flex and
+// skinning stay in both: each builds its geometry from the posed vertex.
+#define GEOMETRYONLYPASS (OUTLINE || HAIRSHADOWPASS)
+
+// Slid along its own view ray, so the screen position is exact and only depth
+// changes: enough to beat hair sitting a few units ahead of the face, while
+// still losing to anything nearer.
+static const float PULSE_EYELID_DEPTH_OFFSET = 4.0;
+
+static const bool g_bSkinning           = SKINNING ? true : false;
+static const int g_FogType              = DOWATERFOG;
+const float4 cBaseTexCoordTransform[2]  : register(SHADER_SPECIFIC_CONST_0);
+// Scale is folded into this transform by SetVertexShaderTextureScaledTransform,
+// so $detailscale needs no separate constant.
+const float4 cDetailTexCoordTransform[2] : register(SHADER_SPECIFIC_CONST_2);
+#if FACE
+const float4 cFaceTexCoordTransform[2]   : register(SHADER_SPECIFIC_CONST_4);
+// The face's forward and right in reference-pose model space. Skinning them gives
+// the head's live orientation; a ported pose can face any direction, so the CPU
+// builds them from $faceyaw.
+const float4 cFaceRefForward             : register(SHADER_SPECIFIC_CONST_8);
+const float4 cFaceRefRight               : register(SHADER_SPECIFIC_CONST_9);
+#endif
+#if OUTLINE
+const float4 cOutlineParams              : register(SHADER_SPECIFIC_CONST_6);
+#endif
+#if HAIRSHADOWPASS
+// World-space displacement of the caster silhouette, matching the constant
+// offset GFHairShadow applies before projecting.
+const float4 cHairShadowOffset           : register(SHADER_SPECIFIC_CONST_7);
+#endif
+
+//-----------------------------------------------------------------------------
+// Input vertex format
+//-----------------------------------------------------------------------------
+struct VS_INPUT
+{
+    // This is all of the stuff that we ever use
+    float4 vPos                     : POSITION;
+    float4 vBoneWeights             : BLENDWEIGHT;
+    float4 vBoneIndices             : BLENDINDICES;
+    float4 vNormal                  : NORMAL;
+    float2 vTexCoord0               : TEXCOORD0;
+    float4 vLightmapTexCoord        : TEXCOORD1;
+    float4 vLightmapTexCoordOffset  : TEXCOORD2;
+    float3 vPosFlex                 : POSITION1;
+    float3 vNormalFlex              : NORMAL1;
+};
+
+struct VS_OUTPUT
+{
+    // Stuff that isn't seen by the pixel shader
+    float4 projPosSetup             : POSITION;
+    float  fog                      : FOG;
+    // Stuff that is seen by the pixel shader
+    float2 baseTexCoord             : TEXCOORD0;
+    float4 lightAtten               : TEXCOORD1;
+    float3 worldNormal              : TEXCOORD2;
+    float3 worldPos                 : TEXCOORD3;
+    float3 projPos                  : TEXCOORD4;
+#if FACE
+    float4 faceTexCoordAndRightXY   : TEXCOORD5;
+    float4 faceRightZAndFront       : TEXCOORD6;
+#else
+    float4 lightmapTexCoord1And2    : TEXCOORD5;
+    float4 lightmapTexCoord3        : TEXCOORD6;
+#endif
+    float2 detailTexCoord           : TEXCOORD7;
+};
+
+//-----------------------------------------------------------------------------
+// Main shader entry point
+//-----------------------------------------------------------------------------
+VS_OUTPUT main( const VS_INPUT v )
+{
+    VS_OUTPUT o = ( VS_OUTPUT )0;
+
+#if !FACE && !GEOMETRYONLYPASS
+    o.lightmapTexCoord3.z = dot(v.vTexCoord0, cBaseTexCoordTransform[0]) + cBaseTexCoordTransform[0].w;
+    o.lightmapTexCoord3.w = dot(v.vTexCoord0, cBaseTexCoordTransform[1]) + cBaseTexCoordTransform[1].w;
+#endif
+#if !GEOMETRYONLYPASS
+    o.detailTexCoord.x = dot( v.vTexCoord0, cDetailTexCoordTransform[0] ) + cDetailTexCoordTransform[0].w;
+    o.detailTexCoord.y = dot( v.vTexCoord0, cDetailTexCoordTransform[1] ) + cDetailTexCoordTransform[1].w;
+#endif
+
+#if !FACE && !GEOMETRYONLYPASS
+    o.lightmapTexCoord1And2.xy = v.vLightmapTexCoord + v.vLightmapTexCoordOffset;
+
+    float2 lightmapTexCoord2 = o.lightmapTexCoord1And2.xy + v.vLightmapTexCoordOffset;
+    float2 lightmapTexCoord3 = lightmapTexCoord2 + v.vLightmapTexCoordOffset;
+
+    // Reversed component order
+    o.lightmapTexCoord1And2.w = lightmapTexCoord2.x;
+    o.lightmapTexCoord1And2.z = lightmapTexCoord2.y;
+
+    o.lightmapTexCoord3.xy = lightmapTexCoord3;
+#endif
+
+    float4 vPosition = v.vPos;
+    float3 vNormal;
+    DecompressVertex_Normal(v.vNormal, vNormal);
+
+    // The upstream include names c13 cViewProjZ; L4D2 uses it as flex scale.
+    vPosition.xyz += v.vPosFlex * cViewProjZ.x;
+    vNormal += v.vNormalFlex * cViewProjZ.x;
+
+    float3 worldNormal, worldPos;
+    SkinPositionAndNormal(g_bSkinning, vPosition, vNormal, v.vBoneWeights, v.vBoneIndices, worldPos, worldNormal);
+
+#if FACE
+    float3 ignoredPos, faceRight, faceFront;
+    SkinPositionAndNormal(g_bSkinning, vPosition, cFaceRefRight.xyz, v.vBoneWeights, v.vBoneIndices, ignoredPos, faceRight);
+    SkinPositionAndNormal(g_bSkinning, vPosition, cFaceRefForward.xyz, v.vBoneWeights, v.vBoneIndices, ignoredPos, faceFront);
+
+    o.faceTexCoordAndRightXY.xy = float2(
+        dot(v.vTexCoord0, cFaceTexCoordTransform[0]) + cFaceTexCoordTransform[0].w,
+        dot(v.vTexCoord0, cFaceTexCoordTransform[1]) + cFaceTexCoordTransform[1].w);
+    o.faceTexCoordAndRightXY.zw = faceRight.xy;
+    o.faceRightZAndFront = float4(faceRight.z, faceFront);
+
+#endif
+
+#if HAIRSHADOWPASS
+    worldPos += cHairShadowOffset.xyz;
+#endif
+
+#if EYELID
+    worldPos += normalize(cEyePos - worldPos) * PULSE_EYELID_DEPTH_OFFSET;
+#endif
+
+    // Transform into projection space
+    float4 vProjPos = mul(float4(worldPos, 1), cViewProj);
+#if OUTLINE
+    vProjPos = PulseApplyOutline(vProjPos, worldNormal, cViewProj, cOutlineParams);
+#endif
+    o.projPosSetup = vProjPos;
+
+    o.projPos = vProjPos.xyz;
+    o.fog = CalcFog(worldPos, vProjPos.xyz, g_FogType);
+
+    // Needed for water fog alpha and diffuse lighting 
+    o.worldPos = worldPos;
+    o.worldNormal = normalize(worldNormal);
+
+    // Scalar attenuations for four lights
+    o.lightAtten = float4(0, 0, 0, 0);
+
+#if !GEOMETRYONLYPASS
+    #if (NUM_LIGHTS > 0)
+        o.lightAtten.x = GetVertexAttenForLight(worldPos, 0, false);
+    #endif
+
+    #if (NUM_LIGHTS > 1)
+        o.lightAtten.y = GetVertexAttenForLight(worldPos, 1, false);
+    #endif
+
+    #if (NUM_LIGHTS > 2)
+        o.lightAtten.z = GetVertexAttenForLight(worldPos, 2, false);
+    #endif
+
+    #if (NUM_LIGHTS > 3)
+        o.lightAtten.w = GetVertexAttenForLight(worldPos, 3, false);
+    #endif
+#endif
+
+    // Base texture coordinate transform
+    o.baseTexCoord.x = dot(v.vTexCoord0, cBaseTexCoordTransform[0]);
+    o.baseTexCoord.y = dot(v.vTexCoord0, cBaseTexCoordTransform[1]);
+
+    return o;
+}

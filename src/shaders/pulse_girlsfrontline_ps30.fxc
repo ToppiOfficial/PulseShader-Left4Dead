@@ -1,0 +1,433 @@
+//==================================================================================================
+//
+// Physically Based Rendering pixel shader for brushes and models
+//
+//==================================================================================================
+
+// STATIC: "DETAILTEXTURE"              "0..1"
+// STATIC: "LIGHTWARPTEXTURE"           "0..2"
+// STATIC: "STOCKING"                   "0..1"
+// STATIC: "FACE"                       "0..1"
+// STATIC: "OUTLINE"                    "0..1"
+// STATIC: "HAIRSHADOWPASS"             "0..1"
+// STATIC: "FLASHLIGHT"                 "0..1"
+// STATIC: "FLASHLIGHTDEPTHFILTERMODE"  "0..2"
+// STATIC: "USEENVAMBIENT"              "0..1"
+// STATIC: "EMISSIVE"                   "0..1"
+// STATIC: "SPECULAR"                   "0..1"
+
+// DYNAMIC: "WRITEWATERFOGTODESTALPHA"  "0..1"
+// DYNAMIC: "PIXELFOGTYPE"              "0..1"
+// DYNAMIC: "NUM_LIGHTS"                "0..4"
+// DYNAMIC: "WRITE_DEPTH_TO_DESTALPHA"  "0..1"
+// DYNAMIC: "FLASHLIGHTSHADOWS"         "0..1"
+
+// Can't write fog to alpha if there is no fog
+// SKIP: ($PIXELFOGTYPE == 0) && ($WRITEWATERFOGTODESTALPHA != 0)
+// We don't care about flashlight depth unless the flashlight is on
+// SKIP: ( $FLASHLIGHT == 0 ) && ( $FLASHLIGHTSHADOWS == 1 )
+// Flashlight shadow filter mode is irrelevant if there is no flashlight
+// SKIP: ( $FLASHLIGHT == 0 ) && ( $FLASHLIGHTDEPTHFILTERMODE != 0 )
+// Face and stocking materials use different c19 data
+// SKIP: ( $FACE == 1 ) && ( $STOCKING == 1 )
+// The outline pass draws a flat tinted hull and reads no material feature, so
+// every one of those axes produces identical code under it.
+// SKIP: ( $OUTLINE == 1 ) && ( $FLASHLIGHT == 1 )
+// SKIP: ( $OUTLINE == 1 ) && ( $DETAILTEXTURE == 1 )
+// SKIP: ( $OUTLINE == 1 ) && ( $LIGHTWARPTEXTURE != 0 )
+// SKIP: ( $OUTLINE == 1 ) && ( $STOCKING == 1 )
+// SKIP: ( $OUTLINE == 1 ) && ( $FACE == 1 )
+// SKIP: ( $OUTLINE == 1 ) && ( $USEENVAMBIENT == 1 )
+// SKIP: ( $OUTLINE == 1 ) && ( $EMISSIVE == 1 )
+// SKIP: ( $OUTLINE == 1 ) && ( $SPECULAR == 1 )
+// The hair-shadow pass draws a flat tint through a stencil test and reads no
+// material feature, exactly as the outline hull does.
+// SKIP: ( $HAIRSHADOWPASS == 1 ) && ( $OUTLINE == 1 )
+// SKIP: ( $HAIRSHADOWPASS == 1 ) && ( $FLASHLIGHT == 1 )
+// SKIP: ( $HAIRSHADOWPASS == 1 ) && ( $DETAILTEXTURE == 1 )
+// SKIP: ( $HAIRSHADOWPASS == 1 ) && ( $LIGHTWARPTEXTURE != 0 )
+// SKIP: ( $HAIRSHADOWPASS == 1 ) && ( $STOCKING == 1 )
+// SKIP: ( $HAIRSHADOWPASS == 1 ) && ( $FACE == 1 )
+// SKIP: ( $HAIRSHADOWPASS == 1 ) && ( $USEENVAMBIENT == 1 )
+// SKIP: ( $HAIRSHADOWPASS == 1 ) && ( $EMISSIVE == 1 )
+// SKIP: ( $HAIRSHADOWPASS == 1 ) && ( $SPECULAR == 1 )
+// The flashlight pass draws no ambient, no emission and no lights, so those three axes
+// produce identical code under it. NUM_LIGHTS is forced to 0 there by the C++ to match.
+// SKIP: ( $FLASHLIGHT == 1 ) && ( $NUM_LIGHTS > 0 )
+// SKIP: ( $FLASHLIGHT == 1 ) && ( $EMISSIVE == 1 )
+// SKIP: ( $FLASHLIGHT == 1 ) && ( $USEENVAMBIENT == 1 )
+
+#include "common_ps_fxc.h"
+#include "common_flashlight_fxc.h"
+#include "shader_constant_register_map.h"
+
+// $diffuseramptexture drives the shared BRDF ramp hook. It shares LIGHTWARPTEXTURE's
+// axis because both remap the same falloff: 1 is the 1D warp, 2 is the ramp.
+#define PBR_BRDF_RAMP (LIGHTWARPTEXTURE == 2)
+#include "openpbr_common_ps3_x.h"
+
+const float4 g_DiffuseModulation                : register(PSREG_DIFFUSE_MODULATION);
+const float4 g_ShadowTweaks                     : register(PSREG_ENVMAP_TINT__SHADOW_TWEAKS);
+const float3 cAmbientCube[6]                    : register(PSREG_AMBIENT_CUBE);
+const float4 g_EyePos                           : register(PSREG_EYEPOS_SPEC_EXPONENT);
+const float4 g_FogParams                        : register(PSREG_FOG_PARAMS);
+const float4 g_FlashlightAttenuationFactors     : register(PSREG_FLASHLIGHT_ATTENUATION);
+const float4 g_FlashlightPos                    : register(PSREG_FLASHLIGHT_POSITION_RIM_BOOST);
+const float4x4 g_FlashlightWorldToTexture       : register(PSREG_FLASHLIGHT_TO_WORLD_TEXTURE);
+PixelShaderLightInfo cLightInfo[3]              : register(PSREG_LIGHT_INFO_ARRAY);         // 2 registers each - 6 registers total (4th light spread across w's)
+const float4 g_BaseColor                        : register(PSREG_SELFILLUMTINT);
+#if STOCKING
+const float4 g_StockingCenterColor_Power        : register(c3);
+const float4 g_StockingFalloffColor             : register(c19);
+#endif
+#if FACE
+// x = transition width, y = nose highlight strength
+const float4 g_FaceParams                       : register(c19);
+// x scales the terminator, y scales ambient. The hair shadow pass redraws the
+// face with both driven down, so the colour comes from $diffuseramptexture rather than
+// a flat tint, and the shadow still reads where there is no direct light.
+#endif
+
+// rgb = $detailtint (gamma-corrected on upload), a = $detailblendfactor
+const float4 g_DetailTint_and_BlendFactor       : register( c10 );
+// x = $detailblendmode, a constant rather than a combo: the mode only selects a
+// branch inside TextureCombine, and making it static would multiply the static
+// combo count by twelve for no real gain.
+// yzw = flat metalness/roughness/AO scaling the MRAO sample, which against the
+// white fallback texture makes them the values themselves.
+const float4 g_MiscParms                        : register( c26 );
+// x = $specularior, y = $specularweight, z = $basediffuseroughness, w unused.
+const float4 g_OpenPBRParms                     : register( c27 );
+// rgb = $speculartint, the F82 tint applied to the metal Fresnel curve. Above
+// the shared map, which runs out at c31 and whose low slots variants already
+// repurpose. Not c32 - the Alien Swarm branch reserves that for cScreenSize on
+// ps_3_0, and L4D2 is that branch even though our source-pbr headers omit it.
+const float4 g_SpecularTint                     : register( c33 );
+// Opacity of the eyelid overlay pass; 1 on every other pass.
+const float4 g_EyelidBlend                      : register( c36 );
+#if OUTLINE
+// rgb = $outlinecolor, a = $outlinebaseblend
+const float4 g_OutlineColor                     : register( c46 );
+#endif
+#if HAIRSHADOWPASS
+// rgb multiplies the face down where the hair covers it; 1 leaves it untouched.
+const float4 g_HairShadowColor                  : register( c34 );
+#endif
+
+sampler BaseTextureSampler          : register(s0);     // Base map, selfillum in alpha
+sampler NormalTextureSampler        : register(s1);     // Normal map
+sampler EnvmapSampler               : register(s2);     // Cubemap
+sampler DetailSampler               : register(s3);     // Detail texture
+sampler ShadowDepthSampler          : register(s4);     // Flashlight shadow depth map sampler
+sampler RandRotSampler              : register(s5);     // RandomRotation sampler
+sampler FlashlightSampler           : register(s6);     // Flashlight cookie 
+sampler LightWarpSampler            : register(s7);     // 1D diffuse ramp
+sampler RampSampler                 : register(s8);     // $diffuseramptexture lighting ramp
+#if FACE
+sampler FaceShadowSampler            : register(s9);     // Face SDF and nose highlight masks
+#endif
+sampler MRAOTextureSampler          : register(s10);    // MRAO texture
+#if EMISSIVE
+sampler EmissionTextureSampler      : register(s11);    // Emission texture
+#endif
+#if SPECULAR
+sampler SpecularTextureSampler      : register(s12);    // Specular F0 texture
+#endif
+
+#define ENVMAPLOD (g_EyePos.a)
+
+struct PS_INPUT
+{
+    float2 baseTexCoord             : TEXCOORD0;
+    float4 lightAtten               : TEXCOORD1;
+    float3 worldNormal              : TEXCOORD2;
+    float3 worldPos                 : TEXCOORD3;
+    float3 projPos                  : TEXCOORD4;
+#if FACE
+    float4 faceTexCoordAndRightXY   : TEXCOORD5;
+    float4 faceRightZAndFront       : TEXCOORD6;
+#else
+    float4 lightmapTexCoord1And2    : TEXCOORD5;
+    float4 lightmapTexCoord3        : TEXCOORD6;
+#endif
+    float2 detailTexCoord           : TEXCOORD7;
+};
+
+#if FACE
+// Width of the crossover between the mirrored pair, either side of dead centre.
+static const float kFaceCenterTransition = 0.1;
+
+// Resolve the field against the threshold. The width is measured in screen space, so the edge
+// stays the same thickness wherever the field is steep or shallow, and a zero transition still
+// antialiases to a clean pixel rather than a hard step.
+float faceEdge(float value, float threshold, float transition)
+{
+    float width = max(fwidth(value) + transition, EPSILON);
+    return saturate((value - threshold) / width + 0.5);
+}
+
+float2 calculateFaceLighting(float2 faceTexCoord, float3 faceRight, float3 faceFront,
+        float3 lightIn, float diffuseFalloff)
+{
+    // faceRight and faceFront are orthonormal and lightIn is unit, so these are already
+    // the head-space components of a unit vector - no second normalise needed for them.
+    float2 faceLight = float2(dot(lightIn, faceRight), dot(lightIn, faceFront));
+    // The authored field carries the terminator, so this only sets overall level. It
+    // tops out below 1 to keep the ramp off its lit end, where skin ramps go white.
+    float frontFalloff = (1.0 - abs(faceLight.y)) * 0.15 + 0.75;
+    float2 lightDir = faceLight / max(length(faceLight), EPSILON);
+
+    // The map's field increases toward the character's left, so the unmirrored lookup is
+    // the left-lit one. This is the texture's convention, not the head basis.
+    float lightMapSide = -lightDir.x;
+
+    float transition = max(g_FaceParams.x, EPSILON);
+    float sideBlend = smoothstep(-kFaceCenterTransition, kFaceCenterTransition, lightMapSide);
+    float4 directFaceMap = tex2D(FaceShadowSampler, faceTexCoord);
+    float4 mirroredFaceMap = tex2D(FaceShadowSampler, float2(1.0 - faceTexCoord.x, faceTexCoord.y));
+
+    // The light's side picks which of the mirrored pair to read; the threshold comes from
+    // the front component alone, so both halves of the face resolve against the same value.
+    // Where the side term is 0 the light is dead front or dead back, the threshold sits at
+    // an extreme and both lookups agree, so swapping them there is invisible.
+    float sdf = (lightMapSide < 0.0) ? mirroredFaceMap.r : directFaceMap.r;
+    float faceShadow = faceEdge(sdf, saturate(-lightDir.y * 0.5 + 0.5), transition);
+
+    // Inside the mask the authored field is the whole terminator and stands in for the
+    // surface falloff; outside it there is no field to read, so the surface keeps its own.
+    // Alpha covers one half, so the mirrored max recovers the whole face - the mesh
+    // carries neck and ears too.
+    float faceRegion = saturate(max(directFaceMap.a, mirroredFaceMap.a));
+    diffuseFalloff = lerp(diffuseFalloff, faceShadow * frontFalloff, faceRegion);
+
+    // The nose lobes are ours, not the game's, and keep their own [0,1] threshold.
+    // G and B are two offset fields over the same flank, so their intersection is a band
+    // that slides across the bridge as the threshold moves. The map authors one side; the
+    // mirrored lookup supplies the other.
+    float noseThreshold = saturate(0.5 - 0.5 * lightDir.y);
+    float noseDirect = faceEdge(directFaceMap.g, noseThreshold, transition)
+        * faceEdge(directFaceMap.b, 1.0 - noseThreshold, transition);
+    float noseMirrored = faceEdge(mirroredFaceMap.g, noseThreshold, transition)
+        * faceEdge(mirroredFaceMap.b, 1.0 - noseThreshold, transition);
+    // A highlight inside the face's own terminator has no light to catch.
+    float noseSpec = lerp(noseMirrored, noseDirect, sideBlend) * faceShadow;
+    return float2(diffuseFalloff, noseSpec);
+}
+#endif
+
+// Entry point
+float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
+{
+#if HAIRSHADOWPASS
+    // Stencil decides where this lands; the shader only supplies the tint. On
+    // the caster the colour write is masked off and only stencil is touched.
+    return float4(g_HairShadowColor.rgb, 1.0);
+#endif
+#if USEENVAMBIENT
+    float3 EnvAmbientCube[6];
+    setupEnvMapAmbientCube(EnvAmbientCube, EnvmapSampler);
+#else
+    #define EnvAmbientCube cAmbientCube
+#endif
+
+    float3 surfNormal = normalize(i.worldNormal);
+    float3 surfTangent;
+    float3 surfBase; 
+    float flipSign;
+    float3x3 normalBasis = compute_tangent_frame(surfNormal, i.worldPos, i.baseTexCoord , surfTangent, surfBase, flipSign);
+
+    float2 correctedTexCoord = i.baseTexCoord;
+
+    float3 textureNormal = normalize((tex2D( NormalTextureSampler,  correctedTexCoord).xyz - float3(0.5, 0.5, 0.5)) * 2);
+    float3 normal = normalize(mul(textureNormal, normalBasis)); // World Normal
+
+#if FACE
+    float2 faceTexCoord = i.faceTexCoordAndRightXY.xy;
+    float3 faceRight = normalize(float3(i.faceTexCoordAndRightXY.zw, i.faceRightZAndFront.x));
+    float3 faceFront = normalize(i.faceRightZAndFront.yzw);
+#endif
+
+    float4 albedo = tex2D(BaseTextureSampler, correctedTexCoord);
+    albedo.xyz *= g_BaseColor;
+
+#if OUTLINE
+    // Only the back faces of the expanded hull are the outline; the front ones
+    // sit inside the model and would hide it.
+    clip(-faceSign);
+    float3 outlineTint = saturate(g_OutlineColor.rgb);
+    // Blending the base map in lets the outline track the surface it borders
+    // rather than sitting at one flat value.
+    float3 outlineBase = lerp(outlineTint, albedo.rgb * outlineTint, g_OutlineColor.a);
+    float3 outlineLight = saturate(ambientLookup(normalize(i.worldNormal), EnvAmbientCube));
+    return FinalOutput(float4(outlineBase * outlineLight, albedo.a), 0.0,
+                       PIXELFOGTYPE, TONEMAP_SCALE_LINEAR, false, i.projPos.z);
+#endif
+
+#if DETAILTEXTURE
+    // Combined before lighting and before metalness/F0 are derived from albedo,
+    // so a detail texture affects the material response and not just the
+    // surface colour.
+    float4 detailColor = tex2D( DetailSampler, i.detailTexCoord );
+    detailColor.rgb *= g_DetailTint_and_BlendFactor.rgb;
+    albedo = TextureCombine( albedo, detailColor, (int)g_MiscParms.x,
+                             g_DetailTint_and_BlendFactor.a );
+#endif
+
+    float3 mrao = tex2D(MRAOTextureSampler, correctedTexCoord).xyz * g_MiscParms.yzw;
+    float metalness = mrao.x, roughness = mrao.y, ambientOcclusion = mrao.z;
+#if EMISSIVE && !FLASHLIGHT
+    float3 emission = tex2D(EmissionTextureSampler, correctedTexCoord).xyz;
+#endif
+#if SPECULAR
+    float3 specular = tex2D(SpecularTextureSampler, correctedTexCoord).xyz;
+#endif
+    
+    textureNormal.y *= flipSign; // Fixup textureNormal for ambient lighting
+
+    float3 outgoingLightDirection = normalize(g_EyePos.xyz - i.worldPos); // Lo
+    float lightDirectionAngle = max(0, dot(normal, outgoingLightDirection)); // cosLo
+
+    float3 specularReflectionVector = 2.0 * lightDirectionAngle * normal - outgoingLightDirection; // Lr
+
+#if SPECULAR
+    bool useF0Override = true;
+    float3 f0Override = specular.rgb;
+#else
+    bool useF0Override = false;
+    float3 f0Override = 0.0;
+#endif
+
+    OpenPBRSurface surface = openpbrSetupSurface(albedo.rgb, metalness, roughness,
+            g_OpenPBRParms.z, lightDirectionAngle, g_OpenPBRParms.x, g_OpenPBRParms.y,
+            g_SpecularTint.rgb, f0Override, useF0Override);
+
+#if STOCKING
+    // The stocking tint is a diffuse-only stylisation, so it lands on the
+    // surface albedo after setup and leaves the derived F0 alone.
+    float stockingBlend = pow(saturate(lightDirectionAngle), g_StockingCenterColor_Power.a);
+    surface.albedo *= lerp(g_StockingFalloffColor, g_StockingCenterColor_Power.rgb, stockingBlend);
+#endif
+
+    // Start ambient
+    float3 ambientLighting = 0.0;
+    if (!FLASHLIGHT)
+    {
+        float3 diffuseIBL = openpbrEnvDiffuse(surface, ambientLookup(normal, EnvAmbientCube));
+
+        // Source has no prefiltered radiance, so the cubemap's own mip chain
+        // stands in and the ambient cube takes over as roughness rises.
+        float4 specularUV = float4(specularReflectionVector, surface.roughness * ENVMAPLOD);
+        float3 lookupHigh = ENV_MAP_SCALE * texCUBElod(EnvmapSampler, specularUV).xyz;
+        float3 lookupLow = PixelShaderAmbientLight(specularReflectionVector, EnvAmbientCube);
+        float3 specularIrradiance = lerp(lookupHigh, lookupLow, surface.roughness * surface.roughness);
+        float3 specularIBL = openpbrEnvSpecular(surface, specularIrradiance);
+
+        ambientLighting = diffuseIBL * ambientOcclusion
+                        + specularIBL * openpbrSpecularOcclusion(surface, ambientOcclusion);
+    }
+    // End ambient
+
+    // Start direct
+    float3 directLighting = 0.0;
+    if (!FLASHLIGHT) {
+        for (uint n = 0; n < NUM_LIGHTS; ++n)
+        {
+            float3 LightIn = normalize(PixelShaderGetLightVector(i.worldPos, cLightInfo, n));
+            float3 LightColor = PixelShaderGetLightColor(cLightInfo, n) * GetAttenForLight(i.lightAtten, n); // Li
+
+            float diffuseFalloffOverride = -1.0;
+#if FACE
+            float2 faceLighting = calculateFaceLighting(faceTexCoord, faceRight, faceFront, LightIn,
+                    openpbrDiffuseFalloff(normal, LightIn, outgoingLightDirection, surface.NoV,
+                            surface.diffuseRoughness, g_BaseColor.a != 0.0));
+            diffuseFalloffOverride = faceLighting.x;
+            directLighting += faceLighting.y * g_FaceParams.y * LightColor;
+#endif
+
+            directLighting += openpbrDirect(surface, LightIn, LightColor, outgoingLightDirection,
+                    normal, g_BaseColor.a != 0.0, diffuseFalloffOverride, LightWarpSampler
+                    PBR_BRDF_RAMP_ARGS(RampSampler, 1.0));
+        }
+    }
+    // End direct
+
+    // Start flashlight
+    if (FLASHLIGHT)
+    {
+        float4 flashlightSpacePosition = mul(float4(i.worldPos, 1.0), g_FlashlightWorldToTexture);
+        clip( flashlightSpacePosition.w ); // stop projected textures from projecting backwards (only really happens if they have a big FOV because they get frustum culled.)
+        float3 vProjCoords = flashlightSpacePosition.xyz / flashlightSpacePosition.w;
+
+        float3 delta = g_FlashlightPos.xyz - i.worldPos;
+        float distSquared = dot(delta, delta);
+        float dist = sqrt(distSquared);
+
+        float3 flashlightColor = tex2D(FlashlightSampler, vProjCoords.xy);
+        flashlightColor *= cFlashlightColor.xyz;
+
+        float flashlightShadow = 1.0;
+#if FLASHLIGHTSHADOWS
+#if FLASHLIGHTDEPTHFILTERMODE == NVIDIA_PCF_POISSON
+        flashlightShadow = DoShadowNvidiaCheap(ShadowDepthSampler, float4(vProjCoords, 1.0));
+#else
+        flashlightShadow = DoFlashlightShadow(ShadowDepthSampler, RandRotSampler, vProjCoords, i.projPos, FLASHLIGHTDEPTHFILTERMODE, g_ShadowTweaks, true);
+#endif
+        float flashlightAttenuated = lerp(flashlightShadow, 1.0, g_ShadowTweaks.y);         // Blend between fully attenuated and not attenuated
+        float fAtten = saturate(dot(g_FlashlightAttenuationFactors.xyz, float3(1.0, 1.0 / dist, 1.0 / distSquared)));
+        flashlightShadow = saturate(lerp(flashlightAttenuated, flashlightShadow, fAtten));  // Blend between shadow and above, according to light attenuation
+
+#if !PBR_BRDF_RAMP
+        flashlightColor *= flashlightShadow;
+#endif
+#endif
+        float farZ = g_FlashlightAttenuationFactors.w;
+        float endFalloffFactor = RemapValClamped(dist, farZ, 0.6 * farZ, 0.0, 1.0);
+
+        float3 flashLightIntensity = flashlightColor * endFalloffFactor;
+        
+        float3 flashLightIn = normalize(g_FlashlightPos.xyz - i.worldPos);
+
+        float diffuseFalloffOverride = -1.0;
+#if FACE
+        float2 faceLighting = calculateFaceLighting(faceTexCoord, faceRight, faceFront, flashLightIn,
+                openpbrDiffuseFalloff(normal, flashLightIn, outgoingLightDirection, surface.NoV,
+                        surface.diffuseRoughness, g_BaseColor.a != 0.0));
+        diffuseFalloffOverride = faceLighting.x;
+        directLighting += faceLighting.y * g_FaceParams.y * flashLightIntensity;
+#endif
+
+        directLighting += max(0, openpbrDirect(surface, flashLightIn, flashLightIntensity,
+                outgoingLightDirection, normal, g_BaseColor.a != 0.0, diffuseFalloffOverride,
+                LightWarpSampler
+                PBR_BRDF_RAMP_ARGS(RampSampler, flashlightShadow)));
+    }
+    // End flashlight
+
+float fogFactor = 0.0f;
+#if !FLASHLIGHT
+fogFactor = CalcPixelFogFactor(PIXELFOGTYPE, g_FogParams, g_EyePos.z, i.worldPos.z, i.projPos.z);
+#endif
+
+float alpha = albedo.a * g_EyelidBlend.x;
+#if !FLASHLIGHT
+#if WRITEWATERFOGTODESTALPHA && (PIXELFOGTYPE == PIXEL_FOG_TYPE_HEIGHT)
+    alpha = fogFactor;
+#endif
+#endif
+
+    bool bWriteDepthToAlpha = (WRITE_DEPTH_TO_DESTALPHA != 0) && (WRITEWATERFOGTODESTALPHA == 0);
+
+#if FACE
+    float3 combinedLighting = directLighting + ambientLighting;
+#else
+    float3 combinedLighting = directLighting + ambientLighting;
+#endif
+#if FLASHLIGHT
+    combinedLighting *= albedo.a * g_DiffuseModulation.a;
+#endif
+#if EMISSIVE && !FLASHLIGHT
+    combinedLighting += emission;
+#endif
+
+    return FinalOutput(float4(combinedLighting, alpha), fogFactor, PIXELFOGTYPE, TONEMAP_SCALE_LINEAR, bWriteDepthToAlpha, i.projPos.z);
+}
