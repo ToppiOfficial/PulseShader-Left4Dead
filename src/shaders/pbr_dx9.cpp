@@ -36,7 +36,6 @@ struct PBR_Vars_t
     int specularWeight;
     int specularTint;
     int baseDiffuseRoughness;
-    int useEnvAmbient;
     int specularTexture;
     int detailTexture;
     int detailFrame;
@@ -67,7 +66,6 @@ BEGIN_PBR_SHADER(PulsePBR, "Physically based rendering for models")
         SHADER_PARAM(EMISSIONTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Emission texture");
         SHADER_PARAM(NORMALTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Normal texture (deprecated, use $bumpmap)");
         SHADER_PARAM(BUMPMAP, SHADER_PARAM_TYPE_TEXTURE, "", "Normal texture");
-        SHADER_PARAM(USEENVAMBIENT, SHADER_PARAM_TYPE_BOOL, "0", "Use the cubemaps to compute ambient light.");
         SHADER_PARAM(SPECULARTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Specular F0 RGB map");
         SHADER_PARAM(DETAIL, SHADER_PARAM_TYPE_TEXTURE, "", "Detail texture");
         SHADER_PARAM(DETAILFRAME, SHADER_PARAM_TYPE_INTEGER, "0", "Frame number for $detail");
@@ -105,7 +103,6 @@ BEGIN_PBR_SHADER(PulsePBR, "Physically based rendering for models")
         info.specularWeight = SPECULARWEIGHT;
         info.specularTint = SPECULARTINT;
         info.baseDiffuseRoughness = BASEDIFFUSEROUGHNESS;
-        info.useEnvAmbient = USEENVAMBIENT;
         info.specularTexture = SPECULARTEXTURE;
         info.detailTexture = DETAIL;
         info.detailFrame = DETAILFRAME;
@@ -214,7 +211,6 @@ BEGIN_PBR_SHADER(PulsePBR, "Physically based rendering for models")
         bool bIsAlphaTested = IS_FLAG_SET(MATERIAL_VAR_ALPHATEST) != 0;
         bool bHasFlashlight = UsingFlashlight(params);
         bool bHasColor = (info.baseColor != -1) && params[info.baseColor]->IsDefined();
-        bool bUseEnvAmbient = (info.useEnvAmbient != -1) && (params[info.useEnvAmbient]->GetIntValue() == 1);
         bool bHasSpecularTexture = (info.specularTexture != -1) && params[info.specularTexture]->IsTexture();
         bool bHasDetailTexture = (info.detailTexture != -1) && params[info.detailTexture]->IsTexture();
         bool bHasLightWarpTexture = (info.lightWarpTexture != -1) && params[info.lightWarpTexture]->IsTexture();
@@ -296,7 +292,6 @@ BEGIN_PBR_SHADER(PulsePBR, "Physically based rendering for models")
             DECLARE_STATIC_PIXEL_SHADER(pulse_pbr_ps30);
             SET_STATIC_PIXEL_SHADER_COMBO(FLASHLIGHT, bHasFlashlight);
             SET_STATIC_PIXEL_SHADER_COMBO(FLASHLIGHTDEPTHFILTERMODE, nShadowFilterMode);
-            SET_STATIC_PIXEL_SHADER_COMBO(USEENVAMBIENT, bUseEnvAmbient);
             SET_STATIC_PIXEL_SHADER_COMBO(EMISSIVE, bHasEmissionTexture);
             SET_STATIC_PIXEL_SHADER_COMBO(SPECULAR, bHasSpecularTexture);
             SET_STATIC_PIXEL_SHADER_COMBO(DETAILTEXTURE, bHasDetailTexture);

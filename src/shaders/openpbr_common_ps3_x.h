@@ -337,17 +337,3 @@ float3 ambientLookup(float3 normal, float3 EnvAmbientCube[6])
 {
     return PixelShaderAmbientLight(normal, EnvAmbientCube);
 }
-
-// Create an ambient cube from the envmap
-void setupEnvMapAmbientCube(out float3 EnvAmbientCube[6], sampler EnvmapSampler)
-{
-    float4 directionPosX = { 1, 0, 0, 12 }; float4 directionNegX = {-1, 0, 0, 12 };
-    float4 directionPosY = { 0, 1, 0, 12 }; float4 directionNegY = { 0,-1, 0, 12 };
-    float4 directionPosZ = { 0, 0, 1, 12 }; float4 directionNegZ = { 0, 0,-1, 12 };
-    EnvAmbientCube[0] = ENV_MAP_SCALE * texCUBElod(EnvmapSampler, directionPosX).rgb;
-    EnvAmbientCube[1] = ENV_MAP_SCALE * texCUBElod(EnvmapSampler, directionNegX).rgb;
-    EnvAmbientCube[2] = ENV_MAP_SCALE * texCUBElod(EnvmapSampler, directionPosY).rgb;
-    EnvAmbientCube[3] = ENV_MAP_SCALE * texCUBElod(EnvmapSampler, directionNegY).rgb;
-    EnvAmbientCube[4] = ENV_MAP_SCALE * texCUBElod(EnvmapSampler, directionPosZ).rgb;
-    EnvAmbientCube[5] = ENV_MAP_SCALE * texCUBElod(EnvmapSampler, directionNegZ).rgb;
-}

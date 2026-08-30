@@ -8,7 +8,6 @@
 // STATIC: "LIGHTWARPTEXTURE"           "0..1"
 // STATIC: "FLASHLIGHT"                 "0..1"
 // STATIC: "FLASHLIGHTDEPTHFILTERMODE"  "0..2"
-// STATIC: "USEENVAMBIENT"              "0..1"
 // STATIC: "EMISSIVE"                   "0..1"
 // STATIC: "SPECULAR"                   "0..1"
 
@@ -28,7 +27,6 @@
 // produce identical code under it. NUM_LIGHTS is forced to 0 there by the C++ to match.
 // SKIP: ( $FLASHLIGHT == 1 ) && ( $NUM_LIGHTS > 0 )
 // SKIP: ( $FLASHLIGHT == 1 ) && ( $EMISSIVE == 1 )
-// SKIP: ( $FLASHLIGHT == 1 ) && ( $USEENVAMBIENT == 1 )
 
 #include "common_ps_fxc.h"
 #include "common_flashlight_fxc.h"
@@ -97,12 +95,7 @@ struct PS_INPUT
 // Entry point
 float4 main(PS_INPUT i) : COLOR
 {
-#if USEENVAMBIENT
-    float3 EnvAmbientCube[6];
-    setupEnvMapAmbientCube(EnvAmbientCube, EnvmapSampler);
-#else
     #define EnvAmbientCube cAmbientCube
-#endif
 
     float3 surfNormal = normalize(i.worldNormal);
     float3 surfTangent;

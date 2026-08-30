@@ -12,7 +12,6 @@
 // STATIC: "HAIRSHADOWPASS"             "0..1"
 // STATIC: "FLASHLIGHT"                 "0..1"
 // STATIC: "FLASHLIGHTDEPTHFILTERMODE"  "0..2"
-// STATIC: "USEENVAMBIENT"              "0..1"
 // STATIC: "EMISSIVE"                   "0..1"
 // STATIC: "SPECULAR"                   "0..1"
 
@@ -37,7 +36,6 @@
 // SKIP: ( $OUTLINE == 1 ) && ( $LIGHTWARPTEXTURE != 0 )
 // SKIP: ( $OUTLINE == 1 ) && ( $STOCKING == 1 )
 // SKIP: ( $OUTLINE == 1 ) && ( $FACE == 1 )
-// SKIP: ( $OUTLINE == 1 ) && ( $USEENVAMBIENT == 1 )
 // SKIP: ( $OUTLINE == 1 ) && ( $EMISSIVE == 1 )
 // SKIP: ( $OUTLINE == 1 ) && ( $SPECULAR == 1 )
 // The hair-shadow pass draws a flat tint through a stencil test and reads no
@@ -48,14 +46,12 @@
 // SKIP: ( $HAIRSHADOWPASS == 1 ) && ( $LIGHTWARPTEXTURE != 0 )
 // SKIP: ( $HAIRSHADOWPASS == 1 ) && ( $STOCKING == 1 )
 // SKIP: ( $HAIRSHADOWPASS == 1 ) && ( $FACE == 1 )
-// SKIP: ( $HAIRSHADOWPASS == 1 ) && ( $USEENVAMBIENT == 1 )
 // SKIP: ( $HAIRSHADOWPASS == 1 ) && ( $EMISSIVE == 1 )
 // SKIP: ( $HAIRSHADOWPASS == 1 ) && ( $SPECULAR == 1 )
 // The flashlight pass draws no ambient, no emission and no lights, so those three axes
 // produce identical code under it. NUM_LIGHTS is forced to 0 there by the C++ to match.
 // SKIP: ( $FLASHLIGHT == 1 ) && ( $NUM_LIGHTS > 0 )
 // SKIP: ( $FLASHLIGHT == 1 ) && ( $EMISSIVE == 1 )
-// SKIP: ( $FLASHLIGHT == 1 ) && ( $USEENVAMBIENT == 1 )
 
 #include "common_ps_fxc.h"
 #include "common_flashlight_fxc.h"
@@ -223,12 +219,7 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
     // the caster the colour write is masked off and only stencil is touched.
     return float4(g_HairShadowColor.rgb, 1.0);
 #endif
-#if USEENVAMBIENT
-    float3 EnvAmbientCube[6];
-    setupEnvMapAmbientCube(EnvAmbientCube, EnvmapSampler);
-#else
     #define EnvAmbientCube cAmbientCube
-#endif
 
     float3 surfNormal = normalize(i.worldNormal);
     float3 surfTangent;
