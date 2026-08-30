@@ -53,7 +53,7 @@ struct NPR_Vars_t
 
 BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 	BEGIN_SHADER_PARAMS;
-		SHADER_PARAM(BASESHADOWTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Authored shaded base texture");
+		SHADER_PARAM(BASESHADETEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Authored shaded base texture");
 		SHADER_PARAM(AOHATEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "AO, highlight, and alpha texture");
 		SHADER_PARAM(RSRFLTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Rim, specular, and reflection texture");
 		SHADER_PARAM(REFLECTIONTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Packed additive red and multiplicative green reflection texture");
@@ -95,7 +95,7 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 		info.baseColor = COLOR;
 		info.baseColor2 = COLOR2;
 		info.alpha = ALPHA;
-		info.toonMap = BASESHADOWTEXTURE;
+		info.toonMap = BASESHADETEXTURE;
 		info.tripleMaskMap = AOHATEXTURE;
 		info.optionMaskMap = RSRFLTEXTURE;
 		info.reflectionTexture = REFLECTIONTEXTURE;
@@ -149,8 +149,8 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(REFLECTIONSTRENGTH, 1.0f);
 		SET_PARAM_INT_IF_NOT_DEFINED(USEAOHAALPHA, 1);
 
-		if (!params[BASESHADOWTEXTURE]->IsDefined() && params[BASETEXTURE]->IsDefined())
-			params[BASESHADOWTEXTURE]->SetStringValue(params[BASETEXTURE]->GetStringValue());
+		if (!params[BASESHADETEXTURE]->IsDefined() && params[BASETEXTURE]->IsDefined())
+			params[BASESHADETEXTURE]->SetStringValue(params[BASETEXTURE]->GetStringValue());
 
 		NPRSetFlashlightTexturePath(params);
 	}
