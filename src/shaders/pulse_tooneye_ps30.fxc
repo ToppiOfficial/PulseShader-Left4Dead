@@ -1,0 +1,188 @@
+// STATIC:  "BASESHADE"                 "0..1"
+// STATIC:  "LIGHTWARP"                 "0..1"
+// STATIC:  "ENVMAP"                    "0..1"
+// STATIC:  "FLASHLIGHT"                "0..1"
+// STATIC:  "FLASHLIGHTDEPTHFILTERMODE" "0..2"
+// STATIC:  "EYELID"                    "0..1"
+// DYNAMIC: "NUM_LIGHTS"                "0..4"
+// DYNAMIC: "WRITEWATERFOGTODESTALPHA"  "0..1"
+// DYNAMIC: "WRITE_DEPTH_TO_DESTALPHA"  "0..1"
+// DYNAMIC: "PIXELFOGTYPE"              "0..1"
+// DYNAMIC: "FLASHLIGHTSHADOWS"         "0..1"
+
+// SKIP: ($FLASHLIGHT == 0) && ($FLASHLIGHTSHADOWS == 1)
+// SKIP: ($FLASHLIGHT == 0) && ($FLASHLIGHTDEPTHFILTERMODE != 0)
+// The eyelid overlay and the iris reflection are only drawn in the lit pass.
+// SKIP: ($EYELID == 1) && ($FLASHLIGHT == 1)
+// SKIP: ($ENVMAP == 1) && ($FLASHLIGHT == 1)
+
+#include "common_ps_fxc.h"
+#include "common_flashlight_fxc.h"
+#include "common_vertexlitgeneric_dx9.h"
+#include "shader_constant_register_map.h"
+
+const float4 g_FogParams        : register(PSREG_FOG_PARAMS);
+const float4 g_EyePos           : register(PSREG_EYEPOS_SPEC_EXPONENT);
+const float4 g_BaseColor        : register(PSREG_SELFILLUMTINT); // $color (.a = $alpha)
+const float4 g_BaseColor2       : register(c49);                 // $color2
+const float4 g_DiffuseModulation : register(PSREG_DIFFUSE_MODULATION);
+const float4 g_Specular         : register(c10);                // .x brightness, .y ambient fallback, .z saturation
+const float4 g_EyeParams        : register(c3);                 // .x eyelidblend, .y tint ref, .z tint half-width, .w selfillum uses mask tex
+const float4 g_IrisProjectionU  : register(c26);
+const float4 g_IrisProjectionV  : register(c27);
+const float4 g_IrisColor        : register(c48);                // rgb tint, .a = $irisscale
+const float4 g_EyeWhiteColor    : register(c50);
+const float4 g_SelfIllumTint    : register(c51);                // rgb tint, .a = strength
+#if ENVMAP
+const float4 g_EnvmapTint       : register(c52);                // rgb tint, .a = $envmapscale
+#endif
+
+PixelShaderLightInfo cLightInfo[3] : register(PSREG_LIGHT_INFO_ARRAY);
+float3 cAmbientCube[6] : register(PSREG_AMBIENT_CUBE);
+
+#if FLASHLIGHT
+const float4 g_FlashlightAttenuationFactors : register(PSREG_FLASHLIGHT_ATTENUATION);
+const float4 g_FlashlightPos : register(PSREG_FLASHLIGHT_POSITION_RIM_BOOST);
+const float4x4 g_FlashlightWorldToTexture : register(PSREG_FLASHLIGHT_TO_WORLD_TEXTURE);
+const float4 g_FlashlightColor : register(PSREG_FLASHLIGHT_COLOR);
+const float4 g_ShadowTweaks : register(PSREG_ENVMAP_TINT__SHADOW_TWEAKS);
+#endif
+
+sampler BaseSampler      : register(s0); // rgb eye color, a = iris/eyewhite mask
+sampler ShadeSampler     : register(s1); // shaded base, falls back to base
+sampler SpecularSampler  : register(s2); // eyeball-UV shine mask
+#if LIGHTWARP
+sampler LightWarpSampler : register(s3); // 1D diffuse ramp
+#endif
+sampler SelfIllumSampler : register(s8); // selfillum mask, black when unused
+#if ENVMAP
+samplerCUBE EnvmapSampler : register(s9);
+#endif
+#if FLASHLIGHT
+sampler FlashlightSampler  : register(s4);
+sampler ShadowDepthSampler : register(s5);
+sampler RandRotSampler     : register(s6);
+#endif
+
+#include "npr_common_ps3_x.h"
+
+struct PS_INPUT
+{
+	float4 lightAtten  : TEXCOORD1;
+	float3 worldNormal : TEXCOORD2; // eyeball sphere normal
+	float3 worldPos    : TEXCOORD3;
+	float3 projPos     : TEXCOORD4;
+};
+
+// One light's contribution: a half-lambert shade->base transition plus the
+// $speculartexture glint. The lightwarp ramp, when present, remaps the falloff.
+float3 EyeShade(float3 baseCol, float3 shadeCol, float3 specColor,
+	float3 normal, float3 viewDir, float3 lightDir)
+{
+	float nDotL = dot(normal, lightDir);
+	float diffuse = pow(saturate(nDotL * 0.5 + 0.5), 2.0);
+#if LIGHTWARP
+	float3 lit = 2.0 * tex1D(LightWarpSampler, diffuse).rgb;
+#else
+	float3 lit = diffuse;
+#endif
+#if BASESHADE
+	float3 diffuseColor = lerp(shadeCol, baseCol, saturate(lit));
+#else
+	// No shade map: shade the base directly by the (optionally warped) falloff, like a
+	// regular vertexlit/lightwarp surface, instead of the flat toon shade->base blend.
+	float3 diffuseColor = baseCol * saturate(lit);
+#endif
+
+	// The shine map adds an additive highlight in its own colour that just follows the
+	// general diffuse - no sharp cutoff, sitting on top of the color instead of blending.
+	return diffuseColor + specColor * g_Specular.x * diffuse;
+}
+
+float4 main(PS_INPUT i) : COLOR
+{
+	// Eyeball UV: world position projected onto the engine-written iris planes. The
+	// iris disc tracks gaze because those planes move with the eye each frame.
+	float2 corneaUv;
+	corneaUv.x = dot(g_IrisProjectionU, float4(i.worldPos, 1.0));
+	corneaUv.y = dot(g_IrisProjectionV, float4(i.worldPos, 1.0));
+	float2 sphereUv = corneaUv * 0.5 + 0.25;
+
+	// $irisscale zooms the eyeball UV around the iris centre (0.5), so the iris and its
+	// specular grow together - a proxy-drivable toon control on top of the mdl eye size.
+	sphereUv = (sphereUv - 0.5) / g_IrisColor.a + 0.5;
+
+	float4 base = tex2D(BaseSampler, sphereUv);
+	float4 shade = tex2D(ShadeSampler, sphereUv);
+	float mask = base.a; // 1 = eyewhite (opaque), 0 = iris (non-opaque)
+	float3 specColor = tex2D(SpecularSampler, sphereUv).rgb;
+	// $specularsaturation pushes the shine colour around its own luminance; 1 is no
+	// change, 0 greyscale, above 1 more saturated. Clamped so a boost cannot subtract light.
+	float specLuma = dot(specColor, float3(0.2125, 0.7154, 0.0721));
+	specColor = max(0.0, lerp(specLuma.xxx, specColor, g_Specular.z));
+
+	float3 normal = normalize(i.worldNormal);
+	float3 viewDir = normalize(g_EyePos.xyz - i.worldPos);
+
+	// Base alpha is near-binary (iris ~0, eyewhite ~1); filtering smears the boundary into
+	// a wide gradient that blends both tints into a pale ring. Anti-alias the split in
+	// screen space (~2px); $irismasksoftness widens it, $irismaskreference sets the cutoff.
+	float edge = max(fwidth(mask), g_EyeParams.z);
+	float tintMask = smoothstep(g_EyeParams.y - edge, g_EyeParams.y + edge, mask);
+
+	// $iriscolor multiplies the iris and $eyewhitecolor the sclera, keyed off the
+	// remapped mask - the same multiply as $color/$color2, just region-masked. $color
+	// and $color2 multiply the whole eye on top and stack.
+	float3 regionTint = lerp(g_IrisColor.rgb, g_EyeWhiteColor.rgb, tintMask);
+	float3 baseCol = base.rgb * regionTint;
+	float3 shadeCol = shade.rgb * regionTint;
+	// Fold the region tint into the additive shine too, so $iriscolor/$eyewhitecolor
+	// scale the whole region and 0 0 0 reads fully black instead of leaving the glint.
+	specColor *= regionTint;
+
+	float3 color;
+#if FLASHLIGHT
+	float3 flashlightDir;
+	float3 intensity = NPRFlashlightIntensity(i.worldPos, i.projPos, flashlightDir);
+	color = EyeShade(baseCol, shadeCol, specColor, normal, viewDir, flashlightDir) * intensity;
+#else
+	float3 ambient = PixelShaderAmbientLight(normal, cAmbientCube);
+#if (NUM_LIGHTS == 0)
+	ambient = max(ambient, g_Specular.y);
+#endif
+	color = shadeCol * ambient;
+	for (int lightIndex = 0; lightIndex < NUM_LIGHTS; ++lightIndex)
+	{
+		float3 lightDir = normalize(PixelShaderGetLightVector(i.worldPos, cLightInfo, lightIndex));
+		float3 lightColor = PixelShaderGetLightColor(cLightInfo, lightIndex)
+			* NPRGetLightAtten(i.lightAtten, lightIndex) * NPR_LIGHT_SCALE;
+		color += EyeShade(baseCol, shadeCol, specColor, normal, viewDir, lightDir) * lightColor;
+	}
+
+	// Metal-like reflection: the cube is tinted by the eye's own color and $envmaptint
+	// and added on top, so the diffuse coloring underneath is untouched. The mask is
+	// hardcoded from the base map's RGB average as greyscale (not its alpha).
+#if ENVMAP
+	float3 reflection = texCUBE(EnvmapSampler, reflect(-viewDir, normal)).rgb;
+	float reflectMask = (base.r + base.g + base.b) / 3.0;
+	color += reflection * baseCol * g_EnvmapTint.rgb * g_EnvmapTint.a * reflectMask;
+#endif
+
+	// Selfillum: masked pixels read as unlit eye color. The mask is the texture's red
+	// when one is bound, otherwise the iris - the non-opaque part of the base map.
+	float emissive = lerp(1.0 - mask, tex2D(SelfIllumSampler, sphereUv).r, g_EyeParams.w);
+	color = lerp(color, baseCol * g_SelfIllumTint.rgb, emissive * g_SelfIllumTint.a);
+#endif
+
+#if EYELID
+	// The remapped mask so $irismasksoftness sharpens the read-through edge the same way
+	// it sharpens the tint boundary.
+	float alpha = (1.0 - tintMask) * g_EyeParams.x; // iris reads through the hair
+#else
+	float alpha = g_BaseColor.a;
+#endif
+	// $color/$color2 and per-instance engine render color (map/entity rendercolor)
+	// arrive folded into the modulation constant, matching stock Source shaders.
+	color *= g_DiffuseModulation.rgb;
+	return NPRFinalOutput(color, alpha, i.worldPos, i.projPos);
+}

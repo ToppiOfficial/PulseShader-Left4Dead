@@ -109,7 +109,6 @@ float4 main(PS_INPUT i) : COLOR
     float3 normal = normalize(mul(textureNormal, normalBasis)); // World Normal
 
     float4 albedo = tex2D(BaseTextureSampler, correctedTexCoord);
-    albedo.xyz *= g_BaseColor;
 
 #if DETAILTEXTURE
     // Combined before lighting and before metalness/F0 are derived from albedo,
@@ -247,6 +246,10 @@ float alpha = albedo.a;
 #if EMISSIVE && !FLASHLIGHT
     combinedLighting += emission;
 #endif
+
+    // $color/$color2 and per-instance engine render color (map/entity rendercolor)
+    // arrive folded into the modulation constant, matching stock Source shaders.
+    combinedLighting *= g_DiffuseModulation.rgb;
 
     return FinalOutput(float4(combinedLighting, alpha), fogFactor, PIXELFOGTYPE, TONEMAP_SCALE_LINEAR, bWriteDepthToAlpha, i.projPos.z);
 }

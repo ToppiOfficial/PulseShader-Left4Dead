@@ -101,6 +101,7 @@ pulse_add_shader_pair(PREFIX pulse_pbr       EXTRA_SOURCES openpbr_common_ps3_x.
 pulse_add_shader_pair(PREFIX pulse_girlsfrontline EXTRA_SOURCES openpbr_common_ps3_x.h pulse_outline_vs30.h)
 pulse_add_shader_pair(PREFIX pulse_npr        EXTRA_SOURCES npr_common_ps3_x.h pulse_outline_vs30.h)
 pulse_add_shader_pair(PREFIX pulse_umamusume EXTRA_SOURCES npr_common_ps3_x.h pulse_outline_vs30.h)
+pulse_add_shader_pair(PREFIX pulse_tooneye   EXTRA_SOURCES npr_common_ps3_x.h)
 
 add_custom_target(pulse_shaders DEPENDS ${PULSE_SHADER_OUTPUTS})
 
@@ -110,6 +111,7 @@ add_library(game_shader_generic_pulse SHARED
     src/shaders/pulse_shader_convars.cpp
     src/shaders/npr_dx9.cpp
     src/shaders/umamusume_dx9.cpp
+    src/shaders/tooneye_dx9.cpp
     src/basevsshader_impl.cpp
     src/pulse_shaderdll.cpp
     src/pulse_shaderlib_cvar.cpp

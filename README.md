@@ -11,6 +11,12 @@ The families:
   lighting ramp, directional face shading, hair shadow cast, stockings, outline).
 - **PulseNPR** - generic cel shader with outline and matcap.
 - **PulseUmamusume** - Umamusume character shader with authored lit/shadow masks.
+- **PulseToonEye** - toon eyeball shader: the eyerefract iris projection (gaze
+  tracks via engine `$eyeorigin`/`$irisu`/`$irisv`) with flat anime shading -
+  `$baseshadetexture` shade blend, `$speculartexture` catchlight, `$iriscolor`/
+  `$eyewhitecolor` mask tints, cube `$envmap` on the iris, `$selfillum`, and the
+  `$eyelid`/`$eyelidblend` read-through-hair overlay. Base map alpha is the iris
+  (0) / eyewhite (1) mask.
 
 ## How it loads
 

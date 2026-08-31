@@ -10,7 +10,7 @@ set -o pipefail
 cd "$(dirname "$0")/.."
 ROOT="$PWD"
 
-PAIRS="pulse_pbr pulse_girlsfrontline pulse_npr pulse_umamusume"
+PAIRS="pulse_pbr pulse_girlsfrontline pulse_npr pulse_umamusume pulse_tooneye"
 
 FXC="${FXC:-/c/Program Files (x86)/Windows Kits/10/bin/10.0.26100.0/x64/fxc.exe}"
 PREP="$ROOT/sdk/alienswarm-sdk/src/devtools/bin/fxc_prep.pl"

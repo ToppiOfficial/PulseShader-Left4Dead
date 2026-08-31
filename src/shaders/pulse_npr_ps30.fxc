@@ -20,6 +20,7 @@
 const float4 g_FogParams : register(PSREG_FOG_PARAMS);
 const float4 g_EyePos : register(PSREG_EYEPOS_SPEC_EXPONENT);
 const float4 g_BaseColor : register(PSREG_SELFILLUMTINT);
+const float4 g_DiffuseModulation : register(PSREG_DIFFUSE_MODULATION);
 const float4 g_Specular : register(c10);
 const float4 g_OutlineColor : register(c46);
 const float4 g_DetailColor : register(c47);
@@ -96,7 +97,7 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 	float3 color = outlineBase * saturate(lighting);
 #else
 	float3 viewDirection = normalize(g_EyePos.xyz - i.worldPos);
-	float3 baseColor = baseSample.rgb * g_BaseColor.rgb;
+	float3 baseColor = baseSample.rgb;
 	float3 shadowColor = baseColor * g_ShadowTint.rgb;
 	float3 color = 0.0;
 
@@ -134,5 +135,8 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 #endif
 
 	float alpha = lerp(baseAlpha, baseAlpha * g_BaseColor.a, g_DetailParams.y);
+	// $color/$color2 and per-instance engine render color (map/entity rendercolor)
+	// arrive folded into the modulation constant, matching stock Source shaders.
+	color *= g_DiffuseModulation.rgb;
 	return NPRFinalOutput(color, alpha, i.worldPos, i.projPos);
 }

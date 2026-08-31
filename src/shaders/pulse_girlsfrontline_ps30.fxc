@@ -240,7 +240,6 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 #endif
 
     float4 albedo = tex2D(BaseTextureSampler, correctedTexCoord);
-    albedo.xyz *= g_BaseColor;
 
 #if OUTLINE
     // Only the back faces of the expanded hull are the outline; the front ones
@@ -422,6 +421,10 @@ float alpha = albedo.a * g_EyelidBlend.x;
 #if EMISSIVE && !FLASHLIGHT
     combinedLighting += emission;
 #endif
+
+    // $color/$color2 and per-instance engine render color (map/entity rendercolor)
+    // arrive folded into the modulation constant, matching stock Source shaders.
+    combinedLighting *= g_DiffuseModulation.rgb;
 
     return FinalOutput(float4(combinedLighting, alpha), fogFactor, PIXELFOGTYPE, TONEMAP_SCALE_LINEAR, bWriteDepthToAlpha, i.projPos.z);
 }

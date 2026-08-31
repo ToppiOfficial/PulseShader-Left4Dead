@@ -1,0 +1,86 @@
+// DYNAMIC: "COMPRESSED_VERTS" "0..1"
+// DYNAMIC: "DOWATERFOG"       "0..1"
+// DYNAMIC: "SKINNING"         "0..1"
+// DYNAMIC: "LIGHTING_PREVIEW" "0..1"
+// DYNAMIC: "NUM_LIGHTS"       "0..4"
+// STATIC:  "EYELID"           "0..1"
+
+#include "common_vs_fxc.h"
+
+static const bool g_bSkinning = SKINNING ? true : false;
+// Front hair clears the face by roughly a head's depth over ten; 4 units covers that
+// on an L4D2-scale character without reaching geometry that legitimately occludes it.
+static const float PULSE_EYELID_DEPTH_OFFSET = 4.0;
+static const int g_FogType = DOWATERFOG;
+
+// Engine-written per eye each frame; the sphere normal is built from it.
+const float3 cEyeOrigin : register(SHADER_SPECIFIC_CONST_0);
+
+struct VS_INPUT
+{
+	float4 vPos         : POSITION;
+	float4 vBoneWeights : BLENDWEIGHT;
+	float4 vBoneIndices : BLENDINDICES;
+	float4 vNormal      : NORMAL;
+	float2 vTexCoord0   : TEXCOORD0;
+	float3 vPosFlex     : POSITION1;
+	float3 vNormalFlex  : NORMAL1;
+};
+
+struct VS_OUTPUT
+{
+	float4 projPosSetup : POSITION;
+	float  fog          : FOG;
+	float4 lightAtten   : TEXCOORD1;
+	float3 worldNormal  : TEXCOORD2; // eyeball sphere normal
+	float3 worldPos     : TEXCOORD3;
+	float3 projPos      : TEXCOORD4;
+};
+
+VS_OUTPUT main(const VS_INPUT v)
+{
+	VS_OUTPUT o = (VS_OUTPUT)0;
+	float4 position = v.vPos;
+	float3 normal;
+	DecompressVertex_Normal(v.vNormal, normal);
+	position.xyz += v.vPosFlex * cViewProjZ.x;
+	normal += v.vNormalFlex * cViewProjZ.x;
+
+	float3 worldPos, worldNormalMesh;
+	SkinPositionAndNormal(g_bSkinning, position, normal, v.vBoneWeights, v.vBoneIndices,
+		worldPos, worldNormalMesh);
+
+	// The eyeball normal is the sphere normal from the engine origin, not the mesh
+	// normal - this is what puts lighting and the iris projection on the eyeball model.
+	float3 sphereNormal = normalize(worldPos - cEyeOrigin);
+
+	// The eyelid overlay only lowers clip-space depth so the iris beats the bangs; it
+	// must not move the world position, which the pixel shader projects the iris from -
+	// pushing that would slide the iris UV and ghost a second iris.
+	float3 projWorldPos = worldPos;
+#if EYELID
+	projWorldPos += normalize(cEyePos - worldPos) * PULSE_EYELID_DEPTH_OFFSET;
+#endif
+
+	float4 projPos = mul(float4(projWorldPos, 1), cViewProj);
+	o.projPosSetup = projPos;
+	o.projPos = projPos.xyz;
+	o.fog = CalcFog(worldPos, projPos.xyz, g_FogType);
+	o.worldPos = worldPos;
+	o.worldNormal = sphereNormal;
+
+#if (NUM_LIGHTS > 0)
+	o.lightAtten.x = GetVertexAttenForLight(worldPos, 0, false);
+#endif
+#if (NUM_LIGHTS > 1)
+	o.lightAtten.y = GetVertexAttenForLight(worldPos, 1, false);
+#endif
+#if (NUM_LIGHTS > 2)
+	o.lightAtten.z = GetVertexAttenForLight(worldPos, 2, false);
+#endif
+#if (NUM_LIGHTS > 3)
+	o.lightAtten.w = GetVertexAttenForLight(worldPos, 3, false);
+#endif
+
+	return o;
+}

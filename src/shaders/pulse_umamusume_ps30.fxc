@@ -26,6 +26,7 @@
 const float4 g_FogParams : register(PSREG_FOG_PARAMS);
 const float4 g_EyePos : register(PSREG_EYEPOS_SPEC_EXPONENT);
 const float4 g_BaseColor : register(PSREG_SELFILLUMTINT);
+const float4 g_DiffuseModulation : register(PSREG_DIFFUSE_MODULATION);
 const float4 g_Highlight : register(c3);
 const float4 g_Specular : register(c10);
 const float4 g_AoAndOutline : register(c26);
@@ -190,8 +191,8 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 	float3 faceUp = 0.0;
 	float faceSide = 0.0;
 #endif
-	float3 baseColor = baseSample.rgb * g_BaseColor.rgb * g_BaseColor2.rgb;
-	float3 toonColor = toonSample.rgb * g_BaseColor.rgb * g_BaseColor2.rgb;
+	float3 baseColor = baseSample.rgb;
+	float3 toonColor = toonSample.rgb;
 	float3 color = 0.0;
 
 #if FLASHLIGHT
@@ -272,5 +273,8 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 
 	float translucentOpacity = opacity * g_BaseColor.a;
 	float alpha = lerp(opacity, translucentOpacity, g_DetailParams.y);
+	// $color/$color2 and per-instance engine render color (map/entity rendercolor)
+	// arrive folded into the modulation constant, matching stock Source shaders.
+	color *= g_DiffuseModulation.rgb;
 	return NPRFinalOutput(color, alpha, i.worldPos, i.projPos);
 }
