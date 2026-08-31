@@ -258,6 +258,11 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
         SET_PARAM_FLOAT_IF_NOT_DEFINED(METALNESS, 0.0f);
         SET_PARAM_FLOAT_IF_NOT_DEFINED(ROUGHNESS, 1.0f);
         SET_PARAM_FLOAT_IF_NOT_DEFINED(AMBIENTOCCLUSION, 1.0f);
+		SET_PARAM_FLOAT_IF_NOT_DEFINED(SPECULARIOR, 1.5f);
+		SET_PARAM_FLOAT_IF_NOT_DEFINED(SPECULARWEIGHT, 1.0f);
+		SET_PARAM_FLOAT_IF_NOT_DEFINED(BASEDIFFUSEROUGHNESS, 0.0f);
+		if (!params[SPECULARTINT]->IsDefined())
+			params[SPECULARTINT]->SetVecValue(1.0f, 1.0f, 1.0f);
         SET_PARAM_FLOAT_IF_NOT_DEFINED(FACEMAPSMOOTHNESS, 0.24f);
         SET_PARAM_FLOAT_IF_NOT_DEFINED(NOSESPECULARSTRENGTH, 1.0f);
         SET_PARAM_FLOAT_IF_NOT_DEFINED(EYELIDBLEND, 0.5f);
@@ -513,9 +518,9 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
             // PS2b shaders and up write sRGB
             pShaderShadow->EnableSRGBWrite(true);
 
-            // Position and surface normal, one float2 texcoord.
+            // Position, normal, UV, and tangent space for normal mapping.
             unsigned int flags = VERTEX_POSITION | VERTEX_NORMAL | VERTEX_FORMAT_COMPRESSED;
-            pShaderShadow->VertexShaderVertexFormat(flags, 1, 0, 0);
+            pShaderShadow->VertexShaderVertexFormat(flags, 1, 0, 4);
 
             // ps_3_0 only: L4D2 reports dxlevel 100, so the shader-model 2b
             // fallback this was forked with is unreachable and has been removed.

@@ -29,6 +29,7 @@ struct VS_INPUT
     float4 vBoneWeights             : BLENDWEIGHT;
     float4 vBoneIndices             : BLENDINDICES;
     float4 vNormal                  : NORMAL;
+    float4 vTangent                 : TANGENT;
     float2 vTexCoord0               : TEXCOORD0;
     float4 vLightmapTexCoord        : TEXCOORD1;
     float4 vLightmapTexCoordOffset  : TEXCOORD2;
@@ -50,6 +51,8 @@ struct VS_OUTPUT
     float4 lightmapTexCoord1And2    : TEXCOORD5;
     float4 lightmapTexCoord3        : TEXCOORD6;
     float2 detailTexCoord           : TEXCOORD7;
+    // xyz world tangent, w binormal sign; the pixel shader rebuilds the frame.
+    float4 worldTangent             : TEXCOORD8;
 };
 
 //-----------------------------------------------------------------------------
@@ -77,14 +80,17 @@ VS_OUTPUT main( const VS_INPUT v )
 
     float4 vPosition = v.vPos;
     float3 vNormal;
-    DecompressVertex_Normal(v.vNormal, vNormal);
+    float4 vTangent;
+    DecompressVertex_NormalTangent(v.vNormal, v.vTangent, vNormal, vTangent);
 
     // The upstream include names c13 cViewProjZ; L4D2 uses it as flex scale.
     vPosition.xyz += v.vPosFlex * cViewProjZ.x;
     vNormal += v.vNormalFlex * cViewProjZ.x;
+    vTangent.xyz += v.vNormalFlex * cViewProjZ.x;
 
-    float3 worldNormal, worldPos;
-    SkinPositionAndNormal(g_bSkinning, vPosition, vNormal, v.vBoneWeights, v.vBoneIndices, worldPos, worldNormal);
+    float3 worldNormal, worldPos, worldTangent, worldBinormal;
+    SkinPositionNormalAndTangentSpace(g_bSkinning, vPosition, vNormal, vTangent,
+            v.vBoneWeights, v.vBoneIndices, worldPos, worldNormal, worldTangent, worldBinormal);
 
 
     // Transform into projection space
@@ -94,9 +100,10 @@ VS_OUTPUT main( const VS_INPUT v )
     o.projPos = vProjPos.xyz;
     o.fog = CalcFog(worldPos, vProjPos.xyz, g_FogType);
 
-    // Needed for water fog alpha and diffuse lighting 
+    // Needed for water fog alpha and diffuse lighting
     o.worldPos = worldPos;
     o.worldNormal = normalize(worldNormal);
+    o.worldTangent = float4(normalize(worldTangent), vTangent.w);
 
     // Scalar attenuations for four lights
     o.lightAtten = float4(0, 0, 0, 0);
