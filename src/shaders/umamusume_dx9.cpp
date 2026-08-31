@@ -20,6 +20,8 @@ struct NPR_Vars_t
 	int tripleMaskMap;
 	int optionMaskMap;
 	int reflectionTexture;
+	int envMap;
+	int envMapTint;
 	int reflectionStrength;
 	int reflectionAddColor;
 	int reflectionMultiplyColor;
@@ -56,6 +58,8 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 		SHADER_PARAM(BASESHADETEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Authored shaded base texture");
 		SHADER_PARAM(AOHATEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "AO, highlight, and alpha texture");
 		SHADER_PARAM(RSRFLTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Rim, specular, and reflection texture");
+		SHADER_PARAM(ENVMAP, SHADER_PARAM_TYPE_ENVMAP, "", "Cubemap reflected on RSRFL green, tinting by base color like metalness");
+		SHADER_PARAM(ENVMAPTINT, SHADER_PARAM_TYPE_COLOR, "[1 1 1]", "Envmap reflection tint");
 		SHADER_PARAM(REFLECTIONTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Packed additive red and multiplicative green reflection texture");
 		SHADER_PARAM(REFLECTIONSTRENGTH, SHADER_PARAM_TYPE_FLOAT, "1", "Reflection strength");
 		SHADER_PARAM(REFLECTIONADDCOLOR, SHADER_PARAM_TYPE_COLOR, "[1 1 1]", "Additive reflection tint");
@@ -99,6 +103,8 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 		info.tripleMaskMap = AOHATEXTURE;
 		info.optionMaskMap = RSRFLTEXTURE;
 		info.reflectionTexture = REFLECTIONTEXTURE;
+		info.envMap = ENVMAP;
+		info.envMapTint = ENVMAPTINT;
 		info.reflectionStrength = REFLECTIONSTRENGTH;
 		info.reflectionAddColor = REFLECTIONADDCOLOR;
 		info.reflectionMultiplyColor = REFLECTIONMULTIPLYCOLOR;
@@ -170,6 +176,7 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 		if (params[info.tripleMaskMap]->IsDefined()) LoadTexture(info.tripleMaskMap);
 		if (params[info.optionMaskMap]->IsDefined()) LoadTexture(info.optionMaskMap);
 		if (params[info.reflectionTexture]->IsDefined()) LoadTexture(info.reflectionTexture);
+		if (params[info.envMap]->IsDefined()) LoadCubeMap(info.envMap);
 		if (params[info.detailTexture]->IsDefined()) LoadTexture(info.detailTexture);
 
 		NPRSetModelFlags(params);
@@ -184,6 +191,7 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 		bool hasTriple = params[info.tripleMaskMap]->IsTexture();
 		bool hasOption = params[info.optionMaskMap]->IsTexture();
 		bool hasReflection = params[info.reflectionTexture]->IsTexture();
+		bool hasEnvMap = params[info.envMap]->IsTexture();
 		bool hasDetail = params[info.detailTexture]->IsTexture();
 		bool flashlight = UsingFlashlight(params);
 		bool face = params[info.faceMode]->GetIntValue() != 0;
@@ -198,6 +206,7 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 		for (int pass = 0; pass < 2; ++pass)
 		{
 			bool outline = pass == 0;
+			bool envmap = hasEnvMap && !outline && !face && !flashlight;
 			if (outline && !outlineEnabled)
 			{
 				Draw(false);
@@ -217,6 +226,11 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 				pShaderShadow->EnableSRGBRead(SHADER_SAMPLER3, false);
 				pShaderShadow->EnableTexture(SHADER_SAMPLER8, true);
 				pShaderShadow->EnableSRGBRead(SHADER_SAMPLER8, false);
+					if (envmap)
+					{
+						pShaderShadow->EnableTexture(SHADER_SAMPLER9, true);
+						pShaderShadow->EnableSRGBRead(SHADER_SAMPLER9, true);
+					}
 				if (hasDetail)
 				{
 					pShaderShadow->EnableTexture(SHADER_SAMPLER7, true);
@@ -242,6 +256,7 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 				SET_STATIC_PIXEL_SHADER_COMBO(FACE, face);
 				SET_STATIC_PIXEL_SHADER_COMBO(OUTLINE, outline);
 				SET_STATIC_PIXEL_SHADER_COMBO(DETAILTEXTURE, hasDetail);
+					SET_STATIC_PIXEL_SHADER_COMBO(ENVMAP, envmap);
 				SET_STATIC_PIXEL_SHADER_COMBO(FLASHLIGHT, flashlight);
 				SET_STATIC_PIXEL_SHADER_COMBO(FLASHLIGHTDEPTHFILTERMODE, shadowFilter);
 				SET_STATIC_PIXEL_SHADER(pulse_umamusume_ps30);
@@ -262,6 +277,16 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 				if (hasReflection) BindTexture(SHADER_SAMPLER8, info.reflectionTexture, 0);
 				else pShaderAPI->BindStandardTexture(SHADER_SAMPLER8, TEXTURE_BLACK);
 				if (hasDetail) BindTexture(SHADER_SAMPLER7, info.detailTexture, info.detailFrame);
+					if (envmap)
+					{
+						BindTexture(SHADER_SAMPLER9, info.envMap, 0);
+						float envTint[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+						params[info.envMapTint]->GetVecValue(envTint, 3);
+						envTint[0] = GammaToLinear(envTint[0]);
+						envTint[1] = GammaToLinear(envTint[1]);
+						envTint[2] = GammaToLinear(envTint[2]);
+						pShaderAPI->SetPixelShaderConstant(52, envTint);
+					}
 
 				float baseColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 				params[info.baseColor]->GetVecValue(baseColor, 3);

@@ -13,7 +13,7 @@
 #include "pulse_girlsfrontline_ps30.inc"
 
 const Sampler_t SAMPLER_RAMP = SHADER_SAMPLER8;
-const Sampler_t SAMPLER_FACESHADOW = SHADER_SAMPLER9;
+const Sampler_t SAMPLER_FACEMAP = SHADER_SAMPLER9;
 
 // Variables for this shader
 struct PBR_Vars_t
@@ -33,6 +33,7 @@ struct PBR_Vars_t
     int flashlightTexture;
     int emissionTexture;
     int mraoTexture;
+    int rmaoTexture;
     int metalness;
     int roughness;
     int ambientOcclusion;
@@ -53,9 +54,9 @@ struct PBR_Vars_t
     int stockingFalloffColor;
     int stockingFalloffPower;
     int rampTexture;
-    int faceShadowTexture;
-    int faceShadowTextureTransform;
-    int faceShadowSmoothness;
+    int faceMapTexture;
+    int faceMapTextureTransform;
+    int faceMapSmoothness;
     int noseSpecularStrength;
     int castHairShadow;
     int hairShadowOffset;
@@ -132,6 +133,7 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
         SHADER_PARAM(ALPHATESTREFERENCE, SHADER_PARAM_TYPE_FLOAT, "0", "");
         SHADER_PARAM(ENVMAP, SHADER_PARAM_TYPE_ENVMAP, "", "Set the cubemap for this material.");
         SHADER_PARAM(MRAOTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Texture with metalness in R, roughness in G, ambient occlusion in B.");
+        SHADER_PARAM(RMAOTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Like $mraotexture but roughness in R, metalness in G. Takes priority over $mraotexture when set.");
         SHADER_PARAM(METALNESS, SHADER_PARAM_TYPE_FLOAT, "0", "Flat metalness, used when there is no $mraotexture.");
         SHADER_PARAM(ROUGHNESS, SHADER_PARAM_TYPE_FLOAT, "1", "Flat roughness, used when there is no $mraotexture.");
         SHADER_PARAM(AMBIENTOCCLUSION, SHADER_PARAM_TYPE_FLOAT, "1", "Flat ambient occlusion, used when there is no $mraotexture.");
@@ -159,14 +161,14 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
         SHADER_PARAM(STOCKINGFALLOFFCOLOR, SHADER_PARAM_TYPE_COLOR, "[0.06 0.035 0.03]", "Stocking color at grazing angles");
         SHADER_PARAM(STOCKINGFALLOFFPOWER, SHADER_PARAM_TYPE_FLOAT, "1.5", "Stocking view-angle falloff power");
         SHADER_PARAM(DIFFUSERAMPTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Girls' Frontline 2 lighting ramp; overrides $lightwarptexture");
-        SHADER_PARAM(FACESHADOWTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Face SDF in R, nose highlight in GB, face mask in A");
-        SHADER_PARAM(FACESHADOWTEXTURETRANSFORM, SHADER_PARAM_TYPE_MATRIX, "center .5 .5 scale 1 1 rotate 0 translate 0 0", "Face shadow texture coordinate transform");
-        SHADER_PARAM(FACESHADOWSMOOTHNESS, SHADER_PARAM_TYPE_FLOAT, "0.24", "Face shadow transition width");
+        SHADER_PARAM(FACEMAPTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Face SDF in R, nose highlight in GB, face mask in A");
+        SHADER_PARAM(FACEMAPTEXTURETRANSFORM, SHADER_PARAM_TYPE_MATRIX, "center .5 .5 scale 1 1 rotate 0 translate 0 0", "Face shadow texture coordinate transform");
+        SHADER_PARAM(FACEMAPSMOOTHNESS, SHADER_PARAM_TYPE_FLOAT, "0.24", "Face shadow transition width");
         SHADER_PARAM(NOSESPECULARSTRENGTH, SHADER_PARAM_TYPE_FLOAT, "1", "Nose highlight strength");
         SHADER_PARAM(FACEYAW, SHADER_PARAM_TYPE_FLOAT, "270", "Degrees the reference pose faces away from +X. 270 is -Y, what these ports export; 0 is the studiomdl convention");
         SHADER_PARAM(EYELID, SHADER_PARAM_TYPE_BOOL, "0", "Draw over the front hair: for eyelash and eyebrow meshes that read through the bangs");
         SHADER_PARAM(EYELIDBLEND, SHADER_PARAM_TYPE_FLOAT, "0.5", "Opacity of the $eyelid overlay where hair covers it, 1 hides the hair outright");
-        SHADER_PARAM(FACE, SHADER_PARAM_TYPE_BOOL, "0", "Shade as a face: $faceshadowtexture drives the terminator and the nose highlight");
+        SHADER_PARAM(FACE, SHADER_PARAM_TYPE_BOOL, "0", "Shade as a face: $facemaptexture drives the terminator and the nose highlight");
         SHADER_PARAM(CASTHAIRSHADOW, SHADER_PARAM_TYPE_BOOL, "0", "Cast this mesh's silhouette into the stencil buffer for $face materials to receive");
         SHADER_PARAM(HAIRSHADOWOFFSET, SHADER_PARAM_TYPE_VEC3, "[0 0 -2]", "World-space displacement of the cast silhouette, in model units");
         SHADER_PARAM(HAIRSHADOWSTRENGTH, SHADER_PARAM_TYPE_FLOAT, "0.5", "On the $casthairshadow material: how far the shadow darkens the face, 0 is invisible and 1 is black");
@@ -204,6 +206,7 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
         info.envMap = ENVMAP;
         info.emissionTexture = EMISSIONTEXTURE;
         info.mraoTexture = MRAOTEXTURE;
+        info.rmaoTexture = RMAOTEXTURE;
         info.metalness = METALNESS;
         info.roughness = ROUGHNESS;
         info.ambientOcclusion = AMBIENTOCCLUSION;
@@ -227,9 +230,9 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
         info.faceYaw = FACEYAW;
         info.eyelid = EYELID;
         info.eyelidBlend = EYELIDBLEND;
-        info.faceShadowTexture = FACESHADOWTEXTURE;
-        info.faceShadowTextureTransform = FACESHADOWTEXTURETRANSFORM;
-        info.faceShadowSmoothness = FACESHADOWSMOOTHNESS;
+        info.faceMapTexture = FACEMAPTEXTURE;
+        info.faceMapTextureTransform = FACEMAPTEXTURETRANSFORM;
+        info.faceMapSmoothness = FACEMAPSMOOTHNESS;
         info.noseSpecularStrength = NOSESPECULARSTRENGTH;
         info.castHairShadow = CASTHAIRSHADOW;
         info.hairShadowOffset = HAIRSHADOWOFFSET;
@@ -255,7 +258,7 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
         SET_PARAM_FLOAT_IF_NOT_DEFINED(METALNESS, 0.0f);
         SET_PARAM_FLOAT_IF_NOT_DEFINED(ROUGHNESS, 1.0f);
         SET_PARAM_FLOAT_IF_NOT_DEFINED(AMBIENTOCCLUSION, 1.0f);
-        SET_PARAM_FLOAT_IF_NOT_DEFINED(FACESHADOWSMOOTHNESS, 0.24f);
+        SET_PARAM_FLOAT_IF_NOT_DEFINED(FACEMAPSMOOTHNESS, 0.24f);
         SET_PARAM_FLOAT_IF_NOT_DEFINED(NOSESPECULARSTRENGTH, 1.0f);
         SET_PARAM_FLOAT_IF_NOT_DEFINED(EYELIDBLEND, 0.5f);
         SET_PARAM_FLOAT_IF_NOT_DEFINED(FACEYAW, 270.0f);
@@ -305,6 +308,9 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
         Assert(info.mraoTexture >= 0);
         LoadTexture(info.mraoTexture);
 
+        if (info.rmaoTexture != -1 && params[info.rmaoTexture]->IsDefined())
+            LoadTexture(info.rmaoTexture);
+
         if (params[info.baseTexture]->IsDefined())
         {
             LoadTexture(info.baseTexture);
@@ -321,8 +327,8 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
         if (params[info.rampTexture]->IsDefined())
             LoadTexture(info.rampTexture);
 
-        if (IsFaceMaterial(params, info) && params[info.faceShadowTexture]->IsDefined())
-            LoadTexture(info.faceShadowTexture);
+        if (IsFaceMaterial(params, info) && params[info.faceMapTexture]->IsDefined())
+            LoadTexture(info.faceMapTexture);
 
         if (info.detailTexture != -1 && params[info.detailTexture]->IsDefined())
         {
@@ -346,6 +352,7 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
         // Setting up booleans
         bool bHasBaseTexture = (info.baseTexture != -1) && params[info.baseTexture]->IsTexture();
         bool bHasNormalTexture = (info.bumpMap != -1) && params[info.bumpMap]->IsTexture();
+        bool bHasRmaoTexture = (info.rmaoTexture != -1) && params[info.rmaoTexture]->IsTexture();
         bool bHasMraoTexture = (info.mraoTexture != -1) && params[info.mraoTexture]->IsTexture();
         bool bHasEmissionTexture = (info.emissionTexture != -1) && params[info.emissionTexture]->IsTexture();
         bool bHasEnvTexture = (info.envMap != -1) && params[info.envMap]->IsTexture();
@@ -365,7 +372,7 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
             && !bIsAlphaTested && !IS_FLAG_SET(MATERIAL_VAR_TRANSLUCENT)
             && params[info.outlineWidth]->GetFloatValue() > 0.0f;
         bool bHasRampTexture = params[info.rampTexture]->IsTexture();
-        bool bFace = IsFaceMaterial(params, info) && params[info.faceShadowTexture]->IsTexture();
+        bool bFace = IsFaceMaterial(params, info) && params[info.faceMapTexture]->IsTexture();
 
         // Determining whether we're dealing with a fully opaque material
         BlendType_t nBlendType = EvaluateBlendRequirements(info.baseTexture, true);
@@ -475,8 +482,8 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
 
             if (bFace)
             {
-                pShaderShadow->EnableTexture(SAMPLER_FACESHADOW, true);
-                pShaderShadow->EnableSRGBRead(SAMPLER_FACESHADOW, false);
+                pShaderShadow->EnableTexture(SAMPLER_FACEMAP, true);
+                pShaderShadow->EnableSRGBRead(SAMPLER_FACEMAP, false);
             }
 
             if (bHasDetailTexture)
@@ -601,8 +608,13 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
                 pShaderAPI->BindStandardTexture(PBR_SAMPLER_NORMAL, TEXTURE_NORMALMAP_FLAT);
             }
 
-            // Setting up mrao map
-            if (bHasMraoTexture)
+            // Setting up mrao map. $rmaotexture wins over $mraotexture; the shader
+            // swaps R/G back when the roughness-first map is bound.
+            if (bHasRmaoTexture)
+            {
+                BindTexture(PBR_SAMPLER_MRAO, info.rmaoTexture, 0);
+            }
+            else if (bHasMraoTexture)
             {
                 BindTexture(PBR_SAMPLER_MRAO, info.mraoTexture, 0);
             }
@@ -659,7 +671,7 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
                 BindTexture(SAMPLER_RAMP, info.rampTexture, 0);
 
             if (bFace)
-                BindTexture(SAMPLER_FACESHADOW, info.faceShadowTexture, 0);
+                BindTexture(SAMPLER_FACEMAP, info.faceMapTexture, 0);
 
             if (bStocking)
             {
@@ -675,13 +687,13 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
             else if (bFace)
             {
                 float faceParams[4] = {
-                    MAX(params[info.faceShadowSmoothness]->GetFloatValue(), 0.0001f),
+                    MAX(params[info.faceMapSmoothness]->GetFloatValue(), 0.0001f),
                     MAX(params[info.noseSpecularStrength]->GetFloatValue(), 0.0f),
                     0.0f, 0.0f
                 };
                 pShaderAPI->SetPixelShaderConstant(19, faceParams, 1);
                 SetVertexShaderTextureTransform(VERTEX_SHADER_SHADER_SPECIFIC_CONST_4,
-                                                info.faceShadowTextureTransform);
+                                                info.faceMapTextureTransform);
             }
 
             if (bHasDetailTexture)
@@ -713,7 +725,7 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
             float miscConst[4] = { 0.0f, 1.0f, 1.0f, 1.0f };
             if (bHasDetailTexture && info.detailBlendMode != -1)
                 miscConst[0] = (float)params[info.detailBlendMode]->GetIntValue();
-            if (!bHasMraoTexture)
+            if (!bHasRmaoTexture && !bHasMraoTexture)
             {
                 if (info.metalness != -1)         miscConst[1] = params[info.metalness]->GetFloatValue();
                 if (info.roughness != -1)         miscConst[2] = params[info.roughness]->GetFloatValue();
@@ -758,7 +770,7 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
             pShaderAPI->SetPixelShaderConstant(36, eyelidBlend, 1);
 
             PBRSetOpenPBRParams(pShaderAPI, params, info.specularIor, info.specularWeight,
-                                info.baseDiffuseRoughness, info.specularTint);
+                                info.baseDiffuseRoughness, info.specularTint, bHasRmaoTexture);
 
             // Setting up dynamic vertex shader
             DECLARE_DYNAMIC_VERTEX_SHADER(pulse_girlsfrontline_vs30);

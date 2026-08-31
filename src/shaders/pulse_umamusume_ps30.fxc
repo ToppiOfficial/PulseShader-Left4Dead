@@ -1,6 +1,7 @@
 // STATIC:  "FACE"                      "0..1"
 // STATIC:  "OUTLINE"                   "0..1"
 // STATIC:  "DETAILTEXTURE"             "0..1"
+// STATIC:  "ENVMAP"                    "0..1"
 // STATIC:  "FLASHLIGHT"                "0..1"
 // STATIC:  "FLASHLIGHTDEPTHFILTERMODE" "0..2"
 // DYNAMIC: "NUM_LIGHTS"                "0..4"
@@ -12,6 +13,10 @@
 // SKIP: ($OUTLINE == 1) && ($FLASHLIGHT == 1)
 // SKIP: ($FLASHLIGHT == 0) && ($FLASHLIGHTSHADOWS == 1)
 // SKIP: ($FLASHLIGHT == 0) && ($FLASHLIGHTDEPTHFILTERMODE != 0)
+// The envmap reflection is only evaluated in the lit body path.
+// SKIP: ($ENVMAP == 1) && ($OUTLINE == 1)
+// SKIP: ($ENVMAP == 1) && ($FACE == 1)
+// SKIP: ($ENVMAP == 1) && ($FLASHLIGHT == 1)
 
 #include "common_ps_fxc.h"
 #include "common_flashlight_fxc.h"
@@ -30,6 +35,9 @@ const float4 g_DetailParams : register(c48);
 const float4 g_BaseColor2 : register(c49);
 const float4 g_ReflectionAdd : register(c50);
 const float4 g_ReflectionMultiply : register(c51);
+#if ENVMAP
+const float4 g_EnvmapTint : register(c52);
+#endif
 PixelShaderLightInfo cLightInfo[3] : register(PSREG_LIGHT_INFO_ARRAY);
 float3 cAmbientCube[6] : register(PSREG_AMBIENT_CUBE);
 
@@ -47,6 +55,9 @@ sampler TripleMaskSampler : register(s2);
 sampler OptionMaskSampler : register(s3);
 sampler DetailSampler : register(s7);
 sampler ReflectionSampler : register(s8);
+#if ENVMAP
+sampler EnvmapSampler : register(s9);
+#endif
 #if FLASHLIGHT
 sampler FlashlightSampler : register(s4);
 sampler ShadowDepthSampler : register(s5);
@@ -249,6 +260,12 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 	float reflectionMask = saturate(optionMask.r * g_ReflectionAdd.a) * effectVisibility;
 	color = color * lerp(1.0, reflection.g * g_ReflectionMultiply.rgb, reflectionMask)
 		+ reflection.r * g_ReflectionAdd.rgb * reflectionMask;
+#if ENVMAP
+	// RSRFL green doubles as a metalness mask: the cube reflection is tinted by the base
+	// color like a metal, but the diffuse term underneath is left unchanged (no darkening).
+	float3 envColor = texCUBE(EnvmapSampler, reflect(-viewDirection, normal)).rgb;
+	color += envColor * baseColor * g_EnvmapTint.rgb * optionMask.g;
+#endif
 #endif
 #endif
 #endif

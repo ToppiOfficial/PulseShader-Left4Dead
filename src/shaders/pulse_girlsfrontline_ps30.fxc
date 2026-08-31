@@ -92,7 +92,8 @@ const float4 g_DetailTint_and_BlendFactor       : register( c10 );
 // yzw = flat metalness/roughness/AO scaling the MRAO sample, which against the
 // white fallback texture makes them the values themselves.
 const float4 g_MiscParms                        : register( c26 );
-// x = $specularior, y = $specularweight, z = $basediffuseroughness, w unused.
+// x = $specularior, y = $specularweight, z = $basediffuseroughness,
+// w = 1 when an $rmaotexture is bound, so the MRAO R/G channels are swapped.
 const float4 g_OpenPBRParms                     : register( c27 );
 // rgb = $speculartint, the F82 tint applied to the metal Fresnel curve. Above
 // the shared map, which runs out at c31 and whose low slots variants already
@@ -120,7 +121,7 @@ sampler FlashlightSampler           : register(s6);     // Flashlight cookie
 sampler LightWarpSampler            : register(s7);     // 1D diffuse ramp
 sampler RampSampler                 : register(s8);     // $diffuseramptexture lighting ramp
 #if FACE
-sampler FaceShadowSampler            : register(s9);     // Face SDF and nose highlight masks
+sampler FaceMapSampler            : register(s9);     // Face SDF and nose highlight masks
 #endif
 sampler MRAOTextureSampler          : register(s10);    // MRAO texture
 #if EMISSIVE
@@ -179,8 +180,8 @@ float2 calculateFaceLighting(float2 faceTexCoord, float3 faceRight, float3 faceF
 
     float transition = max(g_FaceParams.x, EPSILON);
     float sideBlend = smoothstep(-kFaceCenterTransition, kFaceCenterTransition, lightMapSide);
-    float4 directFaceMap = tex2D(FaceShadowSampler, faceTexCoord);
-    float4 mirroredFaceMap = tex2D(FaceShadowSampler, float2(1.0 - faceTexCoord.x, faceTexCoord.y));
+    float4 directFaceMap = tex2D(FaceMapSampler, faceTexCoord);
+    float4 mirroredFaceMap = tex2D(FaceMapSampler, float2(1.0 - faceTexCoord.x, faceTexCoord.y));
 
     // The light's side picks which of the mirrored pair to read; the threshold comes from
     // the front component alone, so both halves of the face resolve against the same value.
@@ -264,7 +265,9 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
                              g_DetailTint_and_BlendFactor.a );
 #endif
 
-    float3 mrao = tex2D(MRAOTextureSampler, correctedTexCoord).xyz * g_MiscParms.yzw;
+    float3 mraoSample = tex2D(MRAOTextureSampler, correctedTexCoord).xyz;
+    // $rmaotexture stores roughness in R, metal in G; swap back to metal/rough/AO.
+    float3 mrao = (g_OpenPBRParms.w > 0.5 ? mraoSample.yxz : mraoSample.xyz) * g_MiscParms.yzw;
     float metalness = mrao.x, roughness = mrao.y, ambientOcclusion = mrao.z;
 #if EMISSIVE && !FLASHLIGHT
     float3 emission = tex2D(EmissionTextureSampler, correctedTexCoord).xyz;

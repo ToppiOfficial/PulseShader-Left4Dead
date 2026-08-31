@@ -199,9 +199,11 @@ protected:
 	// The OpenPBR scalars. Defaults reproduce the pre-OpenPBR look: IOR 1.5 is
 	// F0 0.04, diffuse roughness 0 is Lambert, and a white F82 tint collapses
 	// the metal Fresnel back to plain Schlick.
+	// swapMetalRoughness flags an $rmaotexture (roughness in R, metal in G) bound
+	// to the MRAO sampler, so the shader swaps the two channels back.
 	void PBRSetOpenPBRParams(IShaderDynamicAPI *pShaderAPI, IMaterialVar **params,
 		int specularIorVar, int specularWeightVar, int baseDiffuseRoughnessVar,
-		int specularTintVar)
+		int specularTintVar, bool swapMetalRoughness = false)
 	{
 		float openpbrConst[4] = { 1.5f, 1.0f, 0.0f, 0.0f };
 		if (specularIorVar != -1)
@@ -210,6 +212,7 @@ protected:
 			openpbrConst[1] = params[specularWeightVar]->GetFloatValue();
 		if (baseDiffuseRoughnessVar != -1)
 			openpbrConst[2] = params[baseDiffuseRoughnessVar]->GetFloatValue();
+		openpbrConst[3] = swapMetalRoughness ? 1.0f : 0.0f;
 		pShaderAPI->SetPixelShaderConstant(PBR_PSREG_OPENPBR, openpbrConst, 1);
 
 		// The tint multiplies a reflectance, not a colour sample, so it stays
