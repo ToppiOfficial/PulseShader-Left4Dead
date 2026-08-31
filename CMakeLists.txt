@@ -114,7 +114,6 @@ add_library(game_shader_generic_pulse SHARED
     src/shaders/tooneye_dx9.cpp
     src/basevsshader_impl.cpp
     src/pulse_shaderdll.cpp
-    src/pulse_shaderlib_cvar.cpp
     src/log.cpp
     "${SWARM_SDK}/materialsystem/shaderlib/BaseShader.cpp"
 )

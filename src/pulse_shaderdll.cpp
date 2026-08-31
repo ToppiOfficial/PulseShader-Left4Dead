@@ -36,8 +36,6 @@ public:
 #include "tier1/utlvector.h"
 #include "log.h"
 
-void InitShaderLibCVars( CreateInterfaceFn cvarFactory );
-
 // Consumed by BaseShader.cpp and the shaders themselves.
 IMaterialSystemHardwareConfig *g_pHardwareConfig = NULL;
 const MaterialSystem_Config_t *g_pConfig = NULL;
@@ -85,10 +83,7 @@ public:
 		PulseLog( "Connect: hwcfg=%p cfg=%p shadersys=%p", g_pHardwareConfig, g_pConfig, g_pSLShaderSystem );
 
 		if ( !bIsMaterialSystem )
-		{
 			ConnectTier1Libraries( &factory, 1 );
-			InitShaderLibCVars( factory );
-		}
 
 		bool bOK = ( g_pConfig != NULL ) && ( g_pHardwareConfig != NULL ) && ( g_pSLShaderSystem != NULL );
 		PulseLog( "Connect: returning %d", (int)bOK );
