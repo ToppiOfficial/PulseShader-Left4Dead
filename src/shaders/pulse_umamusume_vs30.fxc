@@ -88,7 +88,7 @@ VS_OUTPUT main(const VS_INPUT v)
 
 	float4 projPos = mul(float4(worldPos, 1), cViewProj);
 #if OUTLINE
-	projPos = PulseApplyOutline(projPos, worldNormal, cViewProj, cOutlineParams);
+	projPos = PulseApplyOutline(projPos, worldPos, worldNormal, cViewProj, cOutlineParams);
 #endif
 	o.projPosSetup = projPos;
 	o.projPos = projPos.xyz;

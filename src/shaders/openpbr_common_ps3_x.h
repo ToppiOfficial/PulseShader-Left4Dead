@@ -289,7 +289,7 @@ float3 openpbrEnvDiffuse(OpenPBRSurface s, float3 irradiance)
 // 1, so only smooth surfaces change.
 float openpbrSpecularOcclusion(OpenPBRSurface s, float ao)
 {
-    return saturate(pow(s.NoV + ao, exp2(-16.0 * s.roughness - 1.0)) - 1.0 + ao);
+    return saturate(pow(s.NoV + ao, exp2(-16.0 * s.roughness * s.roughness - 1.0)) - 1.0 + ao);
 }
 
 //--------------------------------------------------------------------------------------

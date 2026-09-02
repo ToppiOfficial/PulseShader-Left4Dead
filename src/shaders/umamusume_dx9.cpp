@@ -36,6 +36,7 @@ struct NPR_Vars_t
 	int rimLightWidth;
 	int rimLightBrightness;
 	int outlineWidth;
+	int outlineAngle;
 	int outlineColor;
 	int outlineBaseBlend;
 	int detailTexture;
@@ -75,6 +76,7 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 		SHADER_PARAM(RIMLIGHTWIDTH, SHADER_PARAM_TYPE_FLOAT, "0", "NPR rim light width, 0 disables the rim light");
 		SHADER_PARAM(RIMLIGHTBRIGHTNESS, SHADER_PARAM_TYPE_FLOAT, "2", "NPR rim light brightness");
 		SHADER_PARAM(OUTLINEWIDTH, SHADER_PARAM_TYPE_FLOAT, "0", "Outline width in model units");
+		SHADER_PARAM(OUTLINEANGLE, SHADER_PARAM_TYPE_FLOAT, "0", "Minimum view angle for outline expansion in degrees, 0 disables angle fading");
 		SHADER_PARAM(OUTLINECOLOR, SHADER_PARAM_TYPE_COLOR, "[0 0 0]", "Outline tint");
 		SHADER_PARAM(OUTLINEBASEBLEND, SHADER_PARAM_TYPE_FLOAT, "0", "Base texture contribution to the outline");
 		SHADER_PARAM(DETAIL, SHADER_PARAM_TYPE_TEXTURE, "", "Detail texture");
@@ -119,6 +121,7 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 		info.rimLightWidth = RIMLIGHTWIDTH;
 		info.rimLightBrightness = RIMLIGHTBRIGHTNESS;
 		info.outlineWidth = OUTLINEWIDTH;
+		info.outlineAngle = OUTLINEANGLE;
 		info.outlineColor = OUTLINECOLOR;
 		info.outlineBaseBlend = OUTLINEBASEBLEND;
 		info.detailTexture = DETAIL;
@@ -148,6 +151,7 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(RIMLIGHTWIDTH, 0.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(RIMLIGHTBRIGHTNESS, 2.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(OUTLINEWIDTH, 0.0f);
+		SET_PARAM_FLOAT_IF_NOT_DEFINED(OUTLINEANGLE, 0.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(OUTLINEBASEBLEND, 0.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(AOSTRENGTH, 1.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(FACECHEEKSPREAD, 1.0f);
@@ -332,7 +336,8 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 				};
 				pShaderAPI->SetPixelShaderConstant(10, specular);
 
-				NPRSetOutlineConstants(pShaderAPI, params[info.outlineWidth]->GetFloatValue());
+				NPRSetOutlineConstants(pShaderAPI, params[info.outlineWidth]->GetFloatValue(),
+					params[info.outlineAngle]->GetFloatValue());
 				float outlineColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 				params[info.outlineColor]->GetVecValue(outlineColor, 3);
 				pShaderAPI->SetPixelShaderConstant(46, outlineColor);

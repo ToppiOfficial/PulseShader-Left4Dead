@@ -11,9 +11,8 @@ static void LogPath( char *out, size_t len )
 	_snprintf_s( out, len, _TRUNCATE, "%spulse_shader.log", tmp );
 }
 
-// Off unless -pulse_log is on the command line. Each call opens and closes the
-// file, which is fine for load-time tracing but ruinous in the draw path - it
-// cost roughly 170 fps when left enabled per draw call.
+// Off unless -pulse_log is on the command line. The first message starts a
+// fresh log for the process; later messages append to it.
 static bool LoggingEnabled()
 {
 	static int s_state = -1;
@@ -33,9 +32,11 @@ void PulseLog( const char *fmt, ... )
 	char path[MAX_PATH];
 	LogPath( path, sizeof( path ) );
 
+	static bool s_firstWrite = true;
 	FILE *f = nullptr;
-	if ( fopen_s( &f, path, "a" ) != 0 || !f )
+	if ( fopen_s( &f, path, s_firstWrite ? "w" : "a" ) != 0 || !f )
 		return;
+	s_firstWrite = false;
 
 	SYSTEMTIME st;
 	GetLocalTime( &st );

@@ -114,9 +114,11 @@ protected:
 		return flashlightShadows;
 	}
 
-	void NPRSetOutlineConstants(IShaderDynamicAPI *pShaderAPI, float outlineWidth)
+	void NPRSetOutlineConstants(IShaderDynamicAPI *pShaderAPI, float outlineWidth,
+		float outlineAngle)
 	{
-		PulseSetOutlineConstants(pShaderAPI, VERTEX_SHADER_SHADER_SPECIFIC_CONST_2, outlineWidth);
+		PulseSetOutlineConstants(pShaderAPI, VERTEX_SHADER_SHADER_SPECIFIC_CONST_2,
+			outlineWidth, outlineAngle);
 	}
 
 	// Tint is gamma-corrected to match the sRGB base map; alpha carries the

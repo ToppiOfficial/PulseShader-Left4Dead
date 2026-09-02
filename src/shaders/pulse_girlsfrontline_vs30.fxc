@@ -161,7 +161,7 @@ VS_OUTPUT main( const VS_INPUT v )
     // Transform into projection space
     float4 vProjPos = mul(float4(worldPos, 1), cViewProj);
 #if OUTLINE
-    vProjPos = PulseApplyOutline(vProjPos, worldNormal, cViewProj, cOutlineParams);
+    vProjPos = PulseApplyOutline(vProjPos, worldPos, worldNormal, cViewProj, cOutlineParams);
 #endif
     o.projPosSetup = vProjPos;
 

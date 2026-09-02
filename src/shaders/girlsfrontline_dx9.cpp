@@ -67,6 +67,7 @@ struct PBR_Vars_t
     int faceMode;
     int stockingMode;
     int outlineWidth;
+    int outlineAngle;
     int outlineColor;
     int outlineBaseBlend;
 };
@@ -154,6 +155,7 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
         SHADER_PARAM(DETAILTEXTURETRANSFORM, SHADER_PARAM_TYPE_MATRIX, "center .5 .5 scale 1 1 rotate 0 translate 0 0", "$detail texcoord transform");
         SHADER_PARAM(LIGHTWARPTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "1D ramp remapping the diffuse falloff of direct light");
         SHADER_PARAM(OUTLINEWIDTH, SHADER_PARAM_TYPE_FLOAT, "0", "Inverted-hull outline width in model units, 0 disables the outline pass");
+        SHADER_PARAM(OUTLINEANGLE, SHADER_PARAM_TYPE_FLOAT, "0", "Minimum view angle for outline expansion in degrees, 0 disables angle fading");
         SHADER_PARAM(OUTLINECOLOR, SHADER_PARAM_TYPE_COLOR, "[0 0 0]", "Outline tint");
         SHADER_PARAM(OUTLINEBASEBLEND, SHADER_PARAM_TYPE_FLOAT, "0", "Base texture contribution to the outline");
         SHADER_PARAM(STOCKING, SHADER_PARAM_TYPE_BOOL, "0", "Render as a stocking: view-angle tint between $stockingcentercolor and $stockingfalloffcolor");
@@ -240,6 +242,7 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
         info.faceMode = FACE;
         info.stockingMode = STOCKING;
         info.outlineWidth = OUTLINEWIDTH;
+        info.outlineAngle = OUTLINEANGLE;
         info.outlineColor = OUTLINECOLOR;
         info.outlineBaseBlend = OUTLINEBASEBLEND;
     };
@@ -254,6 +257,7 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
         SET_FLAGS(MATERIAL_VAR_MODEL);
 
         SET_PARAM_FLOAT_IF_NOT_DEFINED(OUTLINEWIDTH, 0.0f);
+        SET_PARAM_FLOAT_IF_NOT_DEFINED(OUTLINEANGLE, 0.0f);
         SET_PARAM_FLOAT_IF_NOT_DEFINED(OUTLINEBASEBLEND, 0.0f);
         SET_PARAM_FLOAT_IF_NOT_DEFINED(METALNESS, 0.0f);
         SET_PARAM_FLOAT_IF_NOT_DEFINED(ROUGHNESS, 1.0f);
@@ -716,7 +720,8 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
             if (bOutline)
             {
                 PulseSetOutlineConstants(pShaderAPI, VERTEX_SHADER_SHADER_SPECIFIC_CONST_6,
-                                         params[info.outlineWidth]->GetFloatValue());
+                                         params[info.outlineWidth]->GetFloatValue(),
+                                         params[info.outlineAngle]->GetFloatValue());
 
                 float outlineColor[4] = { 0.0f, 0.0f, 0.0f,
                     MIN(MAX(params[info.outlineBaseBlend]->GetFloatValue(), 0.0f), 1.0f) };

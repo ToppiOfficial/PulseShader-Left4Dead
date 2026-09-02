@@ -33,6 +33,7 @@ struct NPR_Vars_t
 	int specSize;
 	int fallbackBrightness;
 	int outlineWidth;
+	int outlineAngle;
 	int outlineColor;
 	int outlineBaseBlend;
 	int detailTexture;
@@ -58,6 +59,7 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 		SHADER_PARAM(SPECSIZE, SHADER_PARAM_TYPE_FLOAT, "5", "Specular size");
 		SHADER_PARAM(FALLBACKBRIGHTNESS, SHADER_PARAM_TYPE_FLOAT, "0.001", "Brightness without direct lights");
 		SHADER_PARAM(OUTLINEWIDTH, SHADER_PARAM_TYPE_FLOAT, "0", "Outline width in model units, 0 disables the outline pass");
+		SHADER_PARAM(OUTLINEANGLE, SHADER_PARAM_TYPE_FLOAT, "0", "Minimum view angle for outline expansion in degrees, 0 disables angle fading");
 		SHADER_PARAM(OUTLINECOLOR, SHADER_PARAM_TYPE_COLOR, "[0 0 0]", "Outline tint");
 		SHADER_PARAM(OUTLINEBASEBLEND, SHADER_PARAM_TYPE_FLOAT, "0", "Base texture contribution to the outline");
 		SHADER_PARAM(DETAIL, SHADER_PARAM_TYPE_TEXTURE, "", "Detail texture");
@@ -87,6 +89,7 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 		info.specSize = SPECSIZE;
 		info.fallbackBrightness = FALLBACKBRIGHTNESS;
 		info.outlineWidth = OUTLINEWIDTH;
+		info.outlineAngle = OUTLINEANGLE;
 		info.outlineColor = OUTLINECOLOR;
 		info.outlineBaseBlend = OUTLINEBASEBLEND;
 		info.detailTexture = DETAIL;
@@ -108,6 +111,7 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(SPECSIZE, 5.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(FALLBACKBRIGHTNESS, 0.001f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(OUTLINEWIDTH, 0.0f);
+		SET_PARAM_FLOAT_IF_NOT_DEFINED(OUTLINEANGLE, 0.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(OUTLINEBASEBLEND, 0.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(REFLECTIONSTRENGTH, 1.0f);
 
@@ -236,7 +240,8 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 				};
 				pShaderAPI->SetPixelShaderConstant(10, specular);
 
-				NPRSetOutlineConstants(pShaderAPI, params[info.outlineWidth]->GetFloatValue());
+				NPRSetOutlineConstants(pShaderAPI, params[info.outlineWidth]->GetFloatValue(),
+					params[info.outlineAngle]->GetFloatValue());
 
 				float outlineColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 				params[info.outlineColor]->GetVecValue(outlineColor, 3);
