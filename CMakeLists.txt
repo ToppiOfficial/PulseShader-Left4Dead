@@ -2,10 +2,10 @@ cmake_minimum_required(VERSION 3.21)
 
 cmake_policy(SET CMP0091 NEW)
 
-project(PulseSrcShader LANGUAGES CXX)
+project(PulseShader LANGUAGES CXX)
 
 if(NOT MSVC)
-    message(FATAL_ERROR "PulseSrcShader builds with MSVC only.")
+    message(FATAL_ERROR "PulseShader builds with MSVC only.")
 endif()
 
 if(CMAKE_SIZEOF_VOID_P GREATER 4)
