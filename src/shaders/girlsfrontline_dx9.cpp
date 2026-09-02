@@ -559,7 +559,9 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
             DefaultFog(); // I think this is correct
 
             // HACK HACK HACK - enable alpha writes all the time so that we have them for underwater stuff
-            pShaderShadow->EnableAlphaWrites(bFullyOpaque);
+            // The hair-shadow passes masked writes off above; underwater alpha is
+            // the main pass's job, and the marker has its colour writes masked.
+            pShaderShadow->EnableAlphaWrites(bFullyOpaque && !bHairShadow);
             // Per-instance lighting is baked into a command buffer at snapshot
             // time on this branch and replayed by the engine per instance - the
             // PI_ helpers write into that buffer, so they are invalid outside
@@ -820,12 +822,15 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
         // The caster stamps PULSE_STENCIL_HAIRSHADOW, the receiver draws only where
         // that bit stands. Confined to one bit so L4D2's own stencil users - the
         // survivor glow among them - keep the rest of the buffer.
-        // Every main pass clears the bit as well, so anything drawn over the face
-        // un-marks it and the shadow lands on skin the hair has not covered. The
-        // face's own marker runs in pass 2, after its pass 1 clear.
+        // A participating mesh's main pass clears the bit as well, so anything
+        // drawn over the face un-marks it and the shadow lands on skin the hair
+        // has not covered. The face's own marker runs in pass 2, after its clear.
+        // Materials in neither role never touch stencil: setting and then
+        // blanket-disabling it wipes the interior mask L4D2's survivor glow
+        // writes there, and the whole model fills solid with the glow colour.
         bool bMainPass = pass == 1;
         bool bStencilPass = !IsSnapshotting()
-            && (bHairShadow || (PULSE_HAIRSHADOW && bMainPass));
+            && (bHairShadow || (bMainPass && (bFace || bCastHairShadow)));
         if (bStencilPass)
         {
             // One shot each: enough to tell a pass that never runs from a stencil
