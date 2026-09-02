@@ -37,16 +37,6 @@ Written for this project and not derived from Valve or thexa4 code:
   tools/vcspack.py               .fxc -> VCS v6 packer
   tools/mdmp.py, disasm.py, argcount.py   ABI recovery tooling
 
-Not redistributed
------------------
-
-  .reference/    NekoShaders & L4N, by Neko. Someone else's mod, used
-                 read-only to study the engine's on-disk formats. Excluded
-                 from this repository via .gitignore. No code from it was
-                 copied or disassembled for reuse.
-
-  sdk/alienswarm-sdk/   Pinned upstream SDK submodule.
-
 Note that sdk/valve-stdshaders/ IS redistributed - those 8 headers live in this
 repository rather than being fetched at build time, so the Source 1 SDK License
 applies to them directly.

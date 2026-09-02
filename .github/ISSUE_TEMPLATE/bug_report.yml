@@ -1,0 +1,77 @@
+name: Bug report
+description: Crash, visual artifact, bad performance, or a server kick
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Reportable: game crashes, visual artifacts, severe performance loss,
+        or being kicked by a server.
+
+        **Not reportable: VAC bans.** This project does not read or write game
+        memory and does not touch any Valve file. A ban is between you and the
+        other things you have installed.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What happened
+      options:
+        - Game crash
+        - Visual artifact
+        - Poor performance
+        - Kicked by a server
+    validations:
+      required: true
+  - type: input
+    id: shader
+    attributes:
+      label: Which shader
+      description: e.g. PulsePBR, PulseNPR, PulseGirlsFrontline, PulseUmamusume, PulseToonEye
+    validations:
+      required: true
+  - type: textarea
+    id: model
+    attributes:
+      label: Which model, and its VMT
+      description: What model it happens on, plus the material's VMT contents.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Map, what you were doing, how consistently it happens.
+    validations:
+      required: true
+  - type: input
+    id: mods
+    attributes:
+      label: How many other addons do you have installed?
+      description: Rough count, and please say whether it still happens with all of them disabled.
+    validations:
+      required: true
+  - type: textarea
+    id: specs
+    attributes:
+      label: Specs
+      description: GPU, CPU, RAM.
+      value: |
+        GPU:
+        CPU:
+        RAM:
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Game version / build
+      description: Must be the current retail L4D2 build. Old builds are not supported.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log or crash dump
+      description: Optional. Launch with -pulse_log and attach %TEMP%\pulse_shader.log, or the crash dump.
+      render: text

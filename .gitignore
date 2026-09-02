@@ -1,7 +1,5 @@
 # ---- project-specific ----
 
-# NekoShaders/L4N - someone else's mod, kept locally as read-only study
-# material for the engine's on-disk formats. Not ours to redistribute.
 .reference/
 
 # Staged install payload, produced by build.bat + tools/build_shaders.sh

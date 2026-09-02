@@ -57,10 +57,10 @@ Valve does not provide a VAC-safety guarantee for third-party DLLs. Use on
 VAC-secured servers at your own risk; `-insecure` is recommended for development
 and debugging.
 
-## Documentation
-
-`src/shaders/README.md` covers the source layout and how to add a variant.
-`docs/STATE.md` is the engineering log; `AGENTS.md` holds repo conventions.
+This project exists only because L4D2 still exposes `LoadModShaderDLLs`. If a
+game update removes or closes that interface, or Valve takes a position against
+third-party shader modules, the project is closed and archived - no workarounds,
+no injection, no patched engine binaries.
 
 ## Licence
 
