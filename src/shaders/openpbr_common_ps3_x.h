@@ -251,12 +251,12 @@ float3 openpbrDirect(OpenPBRSurface s, float3 lightIn, float3 lightIntensity, fl
         saturate(min(kRampNdfMax, D) * V / max(EPSILON, peakLobe)), kRampSpecularV, 0, 0)).rgb;
     specularBRDF = F * min(10.0, rampedSpecular * peakLobe) * s.energyComp;
 
-    // The sampled value stands in for the N.L cosine on both lobes, and shadow
-    // rides inside the index rather than scaling the result. Replacing the
-    // falloff outright is why this takes priority over $lightwarptexture.
+    // The ramp remaps diffuse falloff and shades the specular lobe, while the
+    // true N.L term keeps specular on the light-facing side.
     float3 rampedDiffuseFalloff = tex2Dlod(brdfRampSampler, float4(
         max(EPSILON, diffuseFalloff * brdfRampShadowScale), kRampDiffuseV, 0, 0)).rgb;
-    return rampedDiffuseFalloff * (diffuseBRDF + specularBRDF) * lightIntensity;
+    return (rampedDiffuseFalloff * diffuseBRDF
+          + rampedDiffuseFalloff * specularBRDF * cosLightIn) * lightIntensity;
 #endif
 #if LIGHTWARPTEXTURE == 1
     // The ramp remaps the diffuse falloff only; specular keeps the true

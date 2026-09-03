@@ -1,0 +1,36 @@
+"PulseNPR" // Models only; requires ps_3_0.
+{
+	$basetexture "models/your_model/base_color" // sRGB base color; alpha can drive cutout or blending.
+	$frame "0" // Animation frame for $basetexture.
+	$basetexturetransform "center .5 .5 scale 1 1 rotate 0 translate 0 0" // Base texture UV transform.
+	$color "[1 1 1]" // Primary material color multiplier.
+	$color2 "[1 1 1]" // Additional material color multiplier.
+	$srgbtint "[1 1 1]" // Additional tint when sRGB-correct blending is active.
+	$alpha "1" // Material opacity; values below 1 use blending.
+	$alphatest "0" // Uses base texture alpha as a cutout when enabled.
+	$alphatestreference "0.5" // Cutout threshold; requires $alphatest 1.
+	$translucent "0" // Enables standard alpha blending.
+	$additive "0" // Selects translucency, but PulseNPR still uses standard alpha blending.
+	$nocull "0" // Draws both sides when enabled.
+
+	$shadowcolor "[0.6 0.6 0.7]" // Base color tint on the shadow side of the cel step.
+	$reflectiontexture "models/your_model/reflection" // Linear matcap: R additive, G multiplicative.
+	$reflectionstrength "1" // Reflection mask strength; requires $reflectiontexture.
+	$reflectionaddcolor "[1 1 1]" // Additive reflection tint; requires $reflectiontexture.
+	$reflectionmultiplycolor "[1 1 1]" // Multiplicative reflection tint; requires $reflectiontexture.
+	$specularsmoothness "1.03" // Width of the specular transition edge.
+	$specularbrightness "0" // Specular intensity; 0 disables the highlight.
+	$specsize "5" // Specular highlight size.
+	$fallbackbrightness "0.001" // Minimum brightness when no direct lights are present.
+	$outlinewidth "0" // Outline width in model units; 0 disables the outline pass.
+	$outlineangle "0" // Minimum expansion angle in degrees; 0 disables angle fading.
+	$outlinecolor "[0 0 0]" // Outline color.
+	$outlinebaseblend "0" // Base texture contribution to the outline.
+	$detail "models/your_model/detail" // Detail texture combined with the base color.
+	$detailframe "0" // Animation frame for $detail; requires $detail.
+	$detailscale "4" // Detail UV scale; requires $detail.
+	$detailblendmode "0" // TextureCombine mode; 0 is Mod2X and requires $detail.
+	$detailblendfactor "1" // Detail blend strength; requires $detail.
+	$detailtint "[1 1 1]" // Detail color multiplier; requires $detail.
+	$detailtexturetransform "center .5 .5 scale 1 1 rotate 0 translate 0 0" // Detail UV transform.
+}

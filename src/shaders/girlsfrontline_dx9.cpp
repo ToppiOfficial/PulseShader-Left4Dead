@@ -140,7 +140,6 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
         SHADER_PARAM(SPECULARTINT, SHADER_PARAM_TYPE_COLOR, "[1 1 1]", "Metal reflectance tint at 82 degrees. White is an untinted Schlick curve.");
         SHADER_PARAM(BASEDIFFUSEROUGHNESS, SHADER_PARAM_TYPE_FLOAT, "0", "Oren-Nayar roughness of the diffuse lobe. 0 is Lambert.");
         SHADER_PARAM(EMISSIONTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Emission texture");
-        SHADER_PARAM(NORMALTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Normal texture (deprecated, use $bumpmap)");
         SHADER_PARAM(BUMPMAP, SHADER_PARAM_TYPE_TEXTURE, "", "Normal texture");
         SHADER_PARAM(SPECULARTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Specular F0 RGB map");
         SHADER_PARAM(DETAIL, SHADER_PARAM_TYPE_TEXTURE, "", "Detail texture");
@@ -267,11 +266,6 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
         SET_PARAM_FLOAT_IF_NOT_DEFINED(EYELIDBLEND, 0.5f);
         SET_PARAM_FLOAT_IF_NOT_DEFINED(FACEYAW, 270.0f);
         SET_PARAM_FLOAT_IF_NOT_DEFINED(HAIRSHADOWSTRENGTH, 0.5f);
-
-
-        // Fallback for changed parameter
-        if (params[NORMALTEXTURE]->IsDefined())
-            params[BUMPMAP]->SetStringValue(params[NORMALTEXTURE]->GetStringValue());
 
         // Dynamic lights need a bumpmap
         if (!params[BUMPMAP]->IsDefined())

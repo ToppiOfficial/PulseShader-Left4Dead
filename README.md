@@ -4,8 +4,6 @@ Custom PBR and NPR model shaders for Left 4 Dead 2, shipped as a
 `game_shader_generic_*` module. It adds new Pulse shaders and modifies no Valve
 file - nothing shipped is overwritten. Models only, ps_3_0 only.
 
-The families:
-
 - **PulsePBR** - OpenPBR Surface (base + specular lobes) for realistic models.
 - **PulseGirlsFrontline** - PulsePBR plus opt-in character features (lighting
   ramp, face shading, hair shadow cast, stockings, outline).
