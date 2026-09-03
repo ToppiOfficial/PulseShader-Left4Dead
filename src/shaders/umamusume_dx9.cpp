@@ -13,9 +13,6 @@ struct NPR_Vars_t
 	int baseTexture;
 	int baseTextureFrame;
 	int baseTextureTransform;
-	int baseColor;
-	int baseColor2;
-	int alpha;
 	int toonMap;
 	int tripleMaskMap;
 	int optionMaskMap;
@@ -66,7 +63,7 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 		SHADER_PARAM(REFLECTIONADDCOLOR, SHADER_PARAM_TYPE_COLOR, "[1 1 1]", "Additive reflection tint");
 		SHADER_PARAM(REFLECTIONMULTIPLYCOLOR, SHADER_PARAM_TYPE_COLOR, "[1 1 1]", "Multiplicative reflection tint");
 		SHADER_PARAM(USEAOHAALPHA, SHADER_PARAM_TYPE_BOOL, "1", "Use AOHA blue as opacity");
-		SHADER_PARAM(ALPHATESTREFERENCE, SHADER_PARAM_TYPE_FLOAT, "0.5", "Cutout threshold");
+		SHADER_PARAM(ALPHATESTREFERENCE, SHADER_PARAM_TYPE_FLOAT, "0", "Cutout threshold");
 		SHADER_PARAM(HIGHLIGHTCOLOR, SHADER_PARAM_TYPE_COLOR, "[1 1 1]", "Highlight color");
 		SHADER_PARAM(HIGHLIGHTBRIGHTNESS, SHADER_PARAM_TYPE_FLOAT, "3", "Highlight brightness");
 		SHADER_PARAM(SPECULARSMOOTHNESS, SHADER_PARAM_TYPE_FLOAT, "1.03", "Specular edge smoothness");
@@ -98,9 +95,6 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 		info.baseTexture = BASETEXTURE;
 		info.baseTextureFrame = FRAME;
 		info.baseTextureTransform = BASETEXTURETRANSFORM;
-		info.baseColor = COLOR;
-		info.baseColor2 = COLOR2;
-		info.alpha = ALPHA;
 		info.toonMap = BASESHADETEXTURE;
 		info.tripleMaskMap = AOHATEXTURE;
 		info.optionMaskMap = RSRFLTEXTURE;
@@ -142,7 +136,6 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 	SHADER_INIT_PARAMS()
 	{
 		SET_FLAGS(MATERIAL_VAR_MODEL);
-		SET_PARAM_FLOAT_IF_NOT_DEFINED(ALPHATESTREFERENCE, 0.5f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(HIGHLIGHTBRIGHTNESS, 3.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(SPECULARSMOOTHNESS, 1.03f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(SPECULARBRIGHTNESS, 30.0f);
@@ -200,7 +193,9 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 		bool flashlight = UsingFlashlight(params);
 		bool face = params[info.faceMode]->GetIntValue() != 0;
 		bool eyelid = params[info.eyelid]->GetIntValue() != 0;
-		bool translucent = IS_FLAG_SET(MATERIAL_VAR_TRANSLUCENT);
+		BlendType_t blendType = EvaluateBlendRequirements(info.baseTexture, true,
+			info.detailTexture);
+		bool translucent = blendType == BT_BLEND || blendType == BT_BLENDADD;
 		bool alphaTest = IS_FLAG_SET(MATERIAL_VAR_ALPHATEST);
 		// An eyelid hull would outline the lashes against the hair they draw over, so
 		// $eyelid suppresses the pass rather than relying on the width being left at 0.
@@ -292,20 +287,9 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 						pShaderAPI->SetPixelShaderConstant(52, envTint);
 					}
 
-				float baseColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-				params[info.baseColor]->GetVecValue(baseColor, 3);
-				baseColor[0] = GammaToLinear(baseColor[0]);
-				baseColor[1] = GammaToLinear(baseColor[1]);
-				baseColor[2] = GammaToLinear(baseColor[2]);
-				baseColor[3] = params[info.alpha]->GetFloatValue();
-				pShaderAPI->SetPixelShaderConstant(PSREG_SELFILLUMTINT, baseColor);
-				float baseColor2[4] = { 1.0f, 1.0f, 1.0f, 0.0f };
-				params[info.baseColor2]->GetVecValue(baseColor2, 3);
-				baseColor2[0] = GammaToLinear(baseColor2[0]);
-				baseColor2[1] = GammaToLinear(baseColor2[1]);
-				baseColor2[2] = GammaToLinear(baseColor2[2]);
-				baseColor2[3] = params[info.useAohaAlpha]->GetIntValue() != 0 ? 1.0f : 0.0f;
-				pShaderAPI->SetPixelShaderConstant(49, baseColor2);
+				float opacityParams[4] = { 0.0f, 0.0f, 0.0f,
+					params[info.useAohaAlpha]->GetIntValue() != 0 ? 1.0f : 0.0f };
+				pShaderAPI->SetPixelShaderConstant(49, opacityParams);
 				float reflectionAdd[4] = { 1.0f, 1.0f, 1.0f,
 					hasReflection ? params[info.reflectionStrength]->GetFloatValue() : 0.0f };
 				params[info.reflectionAddColor]->GetVecValue(reflectionAdd, 3);

@@ -19,7 +19,6 @@
 
 const float4 g_FogParams : register(PSREG_FOG_PARAMS);
 const float4 g_EyePos : register(PSREG_EYEPOS_SPEC_EXPONENT);
-const float4 g_BaseColor : register(PSREG_SELFILLUMTINT);
 const float4 g_DiffuseModulation : register(PSREG_DIFFUSE_MODULATION);
 const float4 g_Specular : register(c10);
 const float4 g_OutlineColor : register(c46);
@@ -134,7 +133,10 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 #endif
 #endif
 
-	float alpha = lerp(baseAlpha, baseAlpha * g_BaseColor.a, g_DetailParams.y);
+	float alpha = baseAlpha * g_DiffuseModulation.a;
+#if FLASHLIGHT
+	color *= alpha;
+#endif
 	// $color/$color2 and per-instance engine render color (map/entity rendercolor)
 	// arrive folded into the modulation constant, matching stock Source shaders.
 	color *= g_DiffuseModulation.rgb;

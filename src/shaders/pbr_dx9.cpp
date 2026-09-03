@@ -20,7 +20,6 @@ struct PBR_Vars_t
     }
 
     int baseTexture;
-    int baseColor;
     int bumpMap;
     int envMap;
     int baseTextureFrame;
@@ -87,7 +86,6 @@ BEGIN_PBR_SHADER(PulsePBR, "Physically based rendering for models")
     void SetupVars(PBR_Vars_t &info)
     {
         info.baseTexture = BASETEXTURE;
-        info.baseColor = COLOR;
         info.bumpMap = BUMPMAP;
         info.baseTextureFrame = FRAME;
         info.baseTextureTransform = BASETEXTURETRANSFORM;
@@ -215,7 +213,6 @@ BEGIN_PBR_SHADER(PulsePBR, "Physically based rendering for models")
         bool bHasEnvTexture = (info.envMap != -1) && params[info.envMap]->IsTexture();
         bool bIsAlphaTested = IS_FLAG_SET(MATERIAL_VAR_ALPHATEST) != 0;
         bool bHasFlashlight = UsingFlashlight(params);
-        bool bHasColor = (info.baseColor != -1) && params[info.baseColor]->IsDefined();
         bool bHasSpecularTexture = (info.specularTexture != -1) && params[info.specularTexture]->IsTexture();
         bool bHasDetailTexture = (info.detailTexture != -1) && params[info.detailTexture]->IsTexture();
         bool bHasLightWarpTexture = (info.lightWarpTexture != -1) && params[info.lightWarpTexture]->IsTexture();
@@ -327,12 +324,7 @@ BEGIN_PBR_SHADER(PulsePBR, "Physically based rendering for models")
                 pShaderAPI->BindStandardTexture(PBR_SAMPLER_BASETEXTURE, TEXTURE_GREY);
             }
 
-            // Setting up vmt color
             float color[4] = {1.f, 1.f, 1.f, IS_FLAG_SET(MATERIAL_VAR_HALFLAMBERT) ? 1.f : 0.f};
-            if (bHasColor)
-            {
-                params[info.baseColor]->GetVecValue(color, 3);
-            }
             pShaderAPI->SetPixelShaderConstant(PSREG_SELFILLUMTINT, color);
 
             // Setting up environment map

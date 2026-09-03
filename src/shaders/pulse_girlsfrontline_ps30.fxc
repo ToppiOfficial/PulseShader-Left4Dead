@@ -92,8 +92,7 @@ const float4 g_DetailTint_and_BlendFactor       : register( c10 );
 // yzw = flat metalness/roughness/AO scaling the MRAO sample, which against the
 // white fallback texture makes them the values themselves.
 const float4 g_MiscParms                        : register( c26 );
-// x = $specularior, y = $specularweight, z = $basediffuseroughness,
-// w = 1 when an $rmaotexture is bound, so the MRAO R/G channels are swapped.
+// x = $specularior, y = $specularweight, z = $basediffuseroughness
 const float4 g_OpenPBRParms                     : register( c27 );
 // rgb = $speculartint, the F82 tint applied to the metal Fresnel curve. Above
 // the shared map, which runs out at c31 and whose low slots variants already
@@ -266,9 +265,7 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
                              g_DetailTint_and_BlendFactor.a );
 #endif
 
-    float3 mraoSample = tex2D(MRAOTextureSampler, correctedTexCoord).xyz;
-    // $rmaotexture stores roughness in R, metal in G; swap back to metal/rough/AO.
-    float3 mrao = (g_OpenPBRParms.w > 0.5 ? mraoSample.yxz : mraoSample.xyz) * g_MiscParms.yzw;
+    float3 mrao = tex2D(MRAOTextureSampler, correctedTexCoord).xyz * g_MiscParms.yzw;
     float metalness = mrao.x, roughness = mrao.y, ambientOcclusion = mrao.z;
 #if EMISSIVE && !FLASHLIGHT
     float3 emission = tex2D(EmissionTextureSampler, correctedTexCoord).xyz;
@@ -401,7 +398,7 @@ float fogFactor = 0.0f;
 fogFactor = CalcPixelFogFactor(PIXELFOGTYPE, g_FogParams, g_EyePos.z, i.worldPos.z, i.projPos.z);
 #endif
 
-float alpha = albedo.a * g_EyelidBlend.x;
+float alpha = albedo.a * g_EyelidBlend.x * g_DiffuseModulation.a;
 #if !FLASHLIGHT
 #if WRITEWATERFOGTODESTALPHA && (PIXELFOGTYPE == PIXEL_FOG_TYPE_HEIGHT)
     alpha = fogFactor;

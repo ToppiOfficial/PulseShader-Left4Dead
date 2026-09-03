@@ -25,7 +25,6 @@
 
 const float4 g_FogParams : register(PSREG_FOG_PARAMS);
 const float4 g_EyePos : register(PSREG_EYEPOS_SPEC_EXPONENT);
-const float4 g_BaseColor : register(PSREG_SELFILLUMTINT);
 const float4 g_DiffuseModulation : register(PSREG_DIFFUSE_MODULATION);
 const float4 g_Highlight : register(c3);
 const float4 g_Specular : register(c10);
@@ -33,7 +32,7 @@ const float4 g_AoAndOutline : register(c26);
 const float4 g_OutlineColor : register(c46);
 const float4 g_DetailColor : register(c47);
 const float4 g_DetailParams : register(c48);
-const float4 g_BaseColor2 : register(c49);
+const float4 g_OpacityParams : register(c49);
 const float4 g_ReflectionAdd : register(c50);
 const float4 g_ReflectionMultiply : register(c51);
 #if ENVMAP
@@ -164,7 +163,7 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 #if FACE
 	float opacity = baseAlpha;
 #else
-	float opacity = lerp(baseAlpha, tripleMask.b, g_BaseColor2.a);
+	float opacity = lerp(baseAlpha, tripleMask.b, g_OpacityParams.a);
 #endif
 
 #if OUTLINE
@@ -271,8 +270,10 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 #endif
 #endif
 
-	float translucentOpacity = opacity * g_BaseColor.a;
-	float alpha = lerp(opacity, translucentOpacity, g_DetailParams.y);
+	float alpha = opacity * g_DiffuseModulation.a;
+#if FLASHLIGHT
+	color *= alpha;
+#endif
 	// $color/$color2 and per-instance engine render color (map/entity rendercolor)
 	// arrive folded into the modulation constant, matching stock Source shaders.
 	color *= g_DiffuseModulation.rgb;

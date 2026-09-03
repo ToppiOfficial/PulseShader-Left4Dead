@@ -20,9 +20,7 @@ struct NPR_Vars_t
 	int baseTexture;
 	int baseTextureFrame;
 	int baseTextureTransform;
-	int baseColor;
 	int shadowColor;
-	int alpha;
 	int alphaTestReference;
 	int reflectionTexture;
 	int reflectionStrength;
@@ -49,7 +47,7 @@ struct NPR_Vars_t
 BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 	BEGIN_SHADER_PARAMS;
 		SHADER_PARAM(SHADOWCOLOR, SHADER_PARAM_TYPE_COLOR, "[0.6 0.6 0.7]", "Tint applied to the base map on the shadow side of the cel step");
-		SHADER_PARAM(ALPHATESTREFERENCE, SHADER_PARAM_TYPE_FLOAT, "0.5", "Cutout threshold");
+		SHADER_PARAM(ALPHATESTREFERENCE, SHADER_PARAM_TYPE_FLOAT, "0", "Cutout threshold");
 		SHADER_PARAM(REFLECTIONTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Matcap indexed by the view-space normal: additive in red, multiplicative in green");
 		SHADER_PARAM(REFLECTIONSTRENGTH, SHADER_PARAM_TYPE_FLOAT, "1", "Reflection strength");
 		SHADER_PARAM(REFLECTIONADDCOLOR, SHADER_PARAM_TYPE_COLOR, "[1 1 1]", "Additive reflection tint");
@@ -76,9 +74,7 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 		info.baseTexture = BASETEXTURE;
 		info.baseTextureFrame = FRAME;
 		info.baseTextureTransform = BASETEXTURETRANSFORM;
-		info.baseColor = COLOR;
 		info.shadowColor = SHADOWCOLOR;
-		info.alpha = ALPHA;
 		info.alphaTestReference = ALPHATESTREFERENCE;
 		info.reflectionTexture = REFLECTIONTEXTURE;
 		info.reflectionStrength = REFLECTIONSTRENGTH;
@@ -105,7 +101,6 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 	SHADER_INIT_PARAMS()
 	{
 		SET_FLAGS(MATERIAL_VAR_MODEL);
-		SET_PARAM_FLOAT_IF_NOT_DEFINED(ALPHATESTREFERENCE, 0.5f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(SPECULARSMOOTHNESS, 1.03f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(SPECULARBRIGHTNESS, 0.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(SPECSIZE, 5.0f);
@@ -143,7 +138,9 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 		bool hasReflection = params[info.reflectionTexture]->IsTexture();
 		bool hasDetail = params[info.detailTexture]->IsTexture();
 		bool flashlight = UsingFlashlight(params);
-		bool translucent = IS_FLAG_SET(MATERIAL_VAR_TRANSLUCENT);
+		BlendType_t blendType = EvaluateBlendRequirements(info.baseTexture, true,
+			info.detailTexture);
+		bool translucent = blendType == BT_BLEND || blendType == BT_BLENDADD;
 		bool alphaTest = IS_FLAG_SET(MATERIAL_VAR_ALPHATEST);
 		bool outlineEnabled = !flashlight && params[info.outlineWidth]->GetFloatValue() > 0.0f;
 
@@ -202,14 +199,6 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 				else pShaderAPI->BindStandardTexture(NPR_SAMPLER_REFLECTION, TEXTURE_BLACK);
 				if (hasDetail) BindTexture(NPR_SAMPLER_DETAIL, info.detailTexture, info.detailFrame);
 
-				float baseColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-				params[info.baseColor]->GetVecValue(baseColor, 3);
-				baseColor[0] = GammaToLinear(baseColor[0]);
-				baseColor[1] = GammaToLinear(baseColor[1]);
-				baseColor[2] = GammaToLinear(baseColor[2]);
-				baseColor[3] = params[info.alpha]->GetFloatValue();
-				pShaderAPI->SetPixelShaderConstant(PSREG_SELFILLUMTINT, baseColor);
-
 				float shadowColor[4] = { 0.6f, 0.6f, 0.7f, 0.0f };
 				params[info.shadowColor]->GetVecValue(shadowColor, 3);
 				shadowColor[0] = GammaToLinear(shadowColor[0]);
@@ -249,10 +238,10 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 
 				NPRSetDetailTint(pShaderAPI, params, info.detailTint, info.detailBlendFactor);
 
-				// c48: x detail blend mode, y translucency, z outline base blend.
+				// c48: x detail blend mode, z outline base blend.
 				float detailParams[4] = {
 					(float)params[info.detailBlendMode]->GetIntValue(),
-					translucent ? 1.0f : 0.0f,
+					0.0f,
 					MIN(MAX(params[info.outlineBaseBlend]->GetFloatValue(), 0.0f), 1.0f),
 					0.0f
 				};

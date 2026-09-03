@@ -230,7 +230,7 @@ float fogFactor = 0.0f;
 fogFactor = CalcPixelFogFactor(PIXELFOGTYPE, g_FogParams, g_EyePos.z, i.worldPos.z, i.projPos.z);
 #endif
 
-float alpha = albedo.a;
+float alpha = albedo.a * g_DiffuseModulation.a;
 #if !FLASHLIGHT
 #if WRITEWATERFOGTODESTALPHA && (PIXELFOGTYPE == PIXEL_FOG_TYPE_HEIGHT)
     alpha = fogFactor;

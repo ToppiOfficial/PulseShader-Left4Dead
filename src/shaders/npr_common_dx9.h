@@ -36,7 +36,7 @@ protected:
 	{
 		pShaderShadow->EnableCulling(!outline && !IS_FLAG_SET(MATERIAL_VAR_NOCULL));
 		pShaderShadow->EnableAlphaTest(alphaTest);
-		if (alphaTest)
+		if (alphaTest && alphaTestRef > 0.0f)
 			pShaderShadow->AlphaFunc(SHADER_ALPHAFUNC_GEQUAL, alphaTestRef);
 		pShaderShadow->EnableDepthWrites(!flashlight && !translucent);
 		pShaderShadow->EnableBlending(flashlight || translucent);
