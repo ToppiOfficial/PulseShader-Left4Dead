@@ -45,10 +45,10 @@ PRs are welcome for two things: fixing an existing shader, or adding a new one.
 
 1. `build.bat` completes clean, and the DLL timestamp actually updated - a
    failed build leaves the old DLL in place.
-2. **Live VAC-secure test.** Join a normal secure server with the shader
-   installed and play long enough to confirm the server does not kick you for
-   a file/consistency error and nothing trips on load. `-insecure` is fine for
-   iteration but is not sufficient for a PR.
+2. **Live dedicated-server compatibility test.** Join an official Valve or
+   community dedicated server with the shader installed and play long enough
+   to confirm it loads, renders, and causes no file-consistency kick.
+   `-insecure` is fine for iteration but not for the final check.
    - Test with **no other mods installed**. Custom test *models* are fine;
      other addons are not.
    - Test on the **current retail version** of L4D2. Results from an older
@@ -71,8 +71,8 @@ PRs are welcome for two things: fixing an existing shader, or adding a new one.
 
 - What it looks like to the user (fixed X, added shader Y).
 - The VMT params it adds or changes.
-- Build + in-game checks you ran, including the secure-server test and the
-  game version.
+- Build + in-game checks you ran, including the dedicated-server test and game
+  version.
 - Before/after screenshots for anything visual.
 - Which existing shaders/models you re-checked for regressions.
 

@@ -19,12 +19,11 @@ shader's VMT params are declared at the top of its `src/shaders/*_dx9.cpp`.
 
 ## Is this safe? (VAC)
 
-It loads through Source's own shader interface: no injection, no hooking, no
-patched exe, no Valve file replaced, no gameplay change. Nothing here does what
-VAC looks for.
+It loads through Source's own shader interface. The project does not inject or
+hook code, patch the executable, replace Valve files, or change gameplay.
 
-That said, Valve gives no VAC-safety guarantee for any third-party DLL, so
-using it on secure servers is your call. Use `-insecure` while developing.
+Valve gives no VAC-safety guarantee for third-party DLLs, so use on secure
+servers is at your own risk. Use `-insecure` while developing or testing.
 
 If a game update ever closes that shader interface, or Valve takes a position
 against third-party shader modules, this project is archived - no workarounds,
@@ -92,7 +91,7 @@ other.
 
 Clone with its pinned SDK submodules:
 
-    git clone --recurse-submodules https://github.com/ToppiOfficial/PulseSourceShader-Left4Dead.git
+    git clone --recurse-submodules https://github.com/ToppiOfficial/PulseShader-Left4Dead.git
 
 For an existing clone: `git submodule update --init`. The Valve HLSL headers are
 vendored in `sdk/valve-stdshaders/` and not fetched.

@@ -1,0 +1,34 @@
+name: Dev release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Build
+        run: .\build.bat
+        shell: cmd
+
+      - name: Package
+        run: Compress-Archive -Path dist\* -DestinationPath PulseShader-dev.zip
+
+      - name: Create prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMIT_SHA: ${{ github.sha }}
+          REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}
+          RUN_NUMBER: ${{ github.run_number }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          $shortSha = $env:COMMIT_SHA.Substring(0, 7)
+          $tag = "dev-$env:RUN_NUMBER.$env:RUN_ATTEMPT"
+          gh release create $tag PulseShader-dev.zip --target $env:COMMIT_SHA --title "Development build $shortSha" --notes "Commit: $env:REPOSITORY_URL/commit/$env:COMMIT_SHA" --prerelease --latest=false
