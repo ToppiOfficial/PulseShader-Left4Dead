@@ -29,5 +29,6 @@ jobs:
           RUN_ATTEMPT: ${{ github.run_attempt }}
         run: |
           $shortSha = $env:COMMIT_SHA.Substring(0, 7)
-          $tag = "dev-$env:RUN_NUMBER.$env:RUN_ATTEMPT"
+          $version = (Get-Content VERSION -Raw).Trim()
+          $tag = "v$version.dev.$env:RUN_NUMBER.$env:RUN_ATTEMPT"
           gh release create $tag PulseShader-dev.zip --target $env:COMMIT_SHA --title "Development build $shortSha" --notes "Commit: $env:COMMIT_SHA" --prerelease --latest=false
