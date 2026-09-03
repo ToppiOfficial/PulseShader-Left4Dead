@@ -1,104 +1,93 @@
 # PulseShader
 
-Custom PBR and NPR model shaders for Left 4 Dead 2, shipped as a
-`game_shader_generic_*` module. It adds new Pulse shaders and modifies no Valve
-file - nothing shipped is overwritten. Models only, ps_3_0 only.
+<p align="center">
+  <img alt="Status: Beta" src="https://img.shields.io/badge/STATUS-BETA-F36D33?style=for-the-badge">
+  <img alt="Source Engine branch: L4D2" src="https://img.shields.io/badge/SOURCE_ENGINE_BRANCH-L4D2-0078D4?style=for-the-badge">
+  <img alt="DirectX: 9" src="https://img.shields.io/badge/DIRECTX-9-107C10?style=for-the-badge">
+</p>
 
-- **PulsePBR** - OpenPBR Surface (base + specular lobes) for realistic models.
-- **PulseGirlsFrontline** - PulsePBR plus opt-in character features (lighting
-  ramp, face shading, hair shadow cast, stockings, outline).
-- **PulseNPR** - generic cel shader with outline and matcap.
-- **PulseUmamusume** - Umamusume character shader with authored lit/shadow masks.
-- **PulseToonEye** - toon eyeball: eyerefract's gaze-tracked iris projection
-  with flat anime shading, catchlight, and an eyelid overlay.
+Custom PBR and NPR model shaders for Left 4 Dead 2. PulseShader installs as a
+`game_shader_generic_*` module without replacing Valve files. It supports models
+and ps_3_0 only.
 
-`src/shaders/README.md` covers the source layout and how to add a variant. Each
-shader's VMT params are declared at the top of its `src/shaders/*_dx9.cpp`.
+- **PulsePBR** - OpenPBR Surface for realistic models.
+- **PulseGirlsFrontline** - PulsePBR with optional lighting ramps, face shading,
+  hair shadows, stockings, and outlines.
+- **PulseNPR** - cel shading with outlines and matcaps.
+- **PulseUmamusume** - character shading with authored lit and shadow masks.
+- **PulseToonEye** - gaze-tracked toon eyes with catchlights and eyelid overlays.
 
-## Is this safe? (VAC)
+> [!WARNING]
+> Valve does not guarantee that third-party DLLs are VAC-safe. Use this mod on
+> secure servers at your own risk, and use `-insecure` while testing.
 
-It loads through Source's own shader interface. The project does not inject or
-hook code, patch the executable, replace Valve files, or change gameplay.
+## Install
 
-Valve gives no VAC-safety guarantee for third-party DLLs, so use on secure
-servers is at your own risk. Use `-insecure` while developing or testing.
+Download a release, or use your own `dist/` build output, then copy its contents
+into your Left 4 Dead 2 folder:
 
-If a game update ever closes that shader interface, or Valve takes a position
-against third-party shader modules, this project is archived - no workarounds,
-no injection, no patched binaries.
+```text
+<steam>/steamapps/common/Left 4 Dead 2/
+  left4dead2/bin/game_shader_generic_pulse.dll
+  left4dead2/bin/game_shader_generic_pulse        (extensionless, required)
+  left4dead2/shaders/fxc/pulse_*.vcs
+```
 
-## How to install - READ THIS
+Use `left4dead2/bin/` inside the `left4dead2` folder, not the `bin/` beside the
+game executable. Both `game_shader_generic_pulse` files are required.
 
-Grab a release (or your own `build.bat` output) and copy the contents of
-`dist/` into your Left 4 Dead 2 folder, keeping the layout:
+On a clean install, these are all new files. If Windows asks to overwrite
+anything, continue only if you are updating an existing PulseShader install.
+Otherwise, stop and check the existing file first.
 
-    <steam>/steamapps/common/Left 4 Dead 2/
-      left4dead2/bin/game_shader_generic_pulse.dll
-      left4dead2/bin/game_shader_generic_pulse      <- extensionless, required
-      left4dead2/shaders/fxc/pulse_*.vcs
+## Uninstall
 
-Note the path: `left4dead2/bin/`, **inside** the `left4dead2` folder. The
-`bin/` next to the exe at the game root is the engine/SDK one (hammer,
-studiomdl, ...) - nothing goes there.
+Delete only these files:
 
-Both files in `bin/` must be there. The extensionless one is not a mistake and
-is not a leftover - the engine will not load the shaders without it.
+```text
+left4dead2/bin/game_shader_generic_pulse.dll
+left4dead2/bin/game_shader_generic_pulse
+left4dead2/shaders/fxc/pulse_*.vcs
+```
 
-## How to uninstall
+Steam's **Verify integrity of game files** does not remove extra mod files, and
+reinstalling without deleting the game folder may leave them behind. Delete them
+manually. You can run Verify afterward to confirm that Valve's files are intact.
 
-Delete exactly those files:
+Materials still using a `Pulse*` shader will show the error material until they
+are changed back to a stock shader.
 
-    left4dead2/bin/game_shader_generic_pulse.dll
-    left4dead2/bin/game_shader_generic_pulse
-    left4dead2/shaders/fxc/pulse_*.vcs
+## How it works
 
-That is the whole uninstall - nothing else was touched, and any VMT still
-naming a `Pulse*` shader falls back to the game's error material until you
-point it at a stock shader again.
+Source loads `game_shader_generic*` modules from `left4dead2/bin`. The
+extensionless file is the name Source discovers; it appends `.dll` and loads
+`ShaderDLL004`. PulseShader does not inject or hook code, patch the executable,
+replace Valve files, or change gameplay.
 
-**"Verify integrity of game files" does not remove this.** Steam only restores
-missing or altered Valve files; these are extra files it does not know about,
-so it leaves them exactly where they are. Same for reinstalling the game
-without deleting the folder. Delete the files by hand.
-
-Once you have deleted them, running Verify is still worth doing - it will not
-remove anything of ours, but it confirms your Valve files are intact and rules
-this mod out if you are chasing an unrelated problem.
-
-> **If file explorer/Windows asks you to overwrite anything on a fresh install, stop.**
-> This project ships zero Valve files. On a clean game folder every file above
-> is new, so an overwrite prompt means one of two things: you already have a
-> copy of PulseShader installed (fine - replacing it is the update path), or
-> something else on your system is using these exact names, which is a red
-> flag. Do not click through it. Verify what is already there first, and if you
-> did not put it there, open an issue.
-
-## How it loads
-
-`CShaderSystem::LoadModShaderDLLs` globs `game_shader_generic*` in
-`left4dead2/bin`, appends `.dll`, and asks each hit for `ShaderDLL004`. That is
-the whole mechanism - no injection, no hooking, no patched exe. The
-extensionless marker file next to the DLL is **required**: the engine appends
-`.dll` to whatever the glob returns, so only that name resolves.
-
-The shader names and compiled filenames are all prefixed, so this installs
-alongside other shader mods (NekoShaders included) without either clobbering the
-other.
+All shader and compiled file names use a `pulse_` prefix, so PulseShader can be
+installed alongside other shader mods, including NekoShaders. If Valve closes
+this interface or rejects third-party shader modules, this project will be
+archived rather than switching to injection or patched binaries.
 
 ## Build
 
-Clone with its pinned SDK submodules:
+Clone the repository with its pinned SDK submodules:
 
-    git clone --recurse-submodules https://github.com/ToppiOfficial/PulseShader-Left4Dead.git
+```text
+git clone --recurse-submodules https://github.com/ToppiOfficial/PulseShader-Left4Dead.git
+```
 
-For an existing clone: `git submodule update --init`. The Valve HLSL headers are
-vendored in `sdk/valve-stdshaders/` and not fetched.
+For an existing clone, run `git submodule update --init`. Install Visual Studio
+C++ x86 build tools, CMake, the Windows SDK, Python 3, and Git for Windows, then
+run `build.bat`. Distributable files are written to `dist/`. The Valve HLSL
+headers in `sdk/valve-stdshaders/` are already vendored.
 
-Install Visual Studio with the C++ x86 build tools, CMake, the Windows SDK,
-Python 3, and Git for Windows, then run `build.bat`. Outputs land in `dist/`.
+Shader source layout and variant instructions are in
+[`src/shaders/README.md`](src/shaders/README.md). Each shader's VMT parameters
+are declared at the top of its `src/shaders/*_dx9.cpp` file.
 
-## Licence
+## License
 
-Derived from thexa4/source-pbr and Valve's Source SDK, so it is governed by the
-Source 1 SDK License: **free distribution only, no commercial use**. See `NOTICE`
-for the full chain of derivation.
+This project derives from thexa4/source-pbr and Valve's Source SDK. It is
+governed by the Source 1 SDK License: **free distribution only, no commercial
+use**. See [`NOTICE`](NOTICE) for provenance and license details.
