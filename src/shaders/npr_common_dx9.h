@@ -25,6 +25,7 @@ const Sampler_t NPR_SAMPLER_REFLECTION  = SHADER_SAMPLER8;
 // c47 is the one detail constant the whole family agrees on. The rest of the
 // constant map is per-variant.
 #define NPR_PSREG_DETAIL_TINT 47
+#define NPR_PSREG_RENDER_BACKFACE 53
 
 class CNPRShaderBase : public CBaseVSShader
 {
@@ -32,9 +33,11 @@ protected:
 	// Blend, depth, and cull state for one pass of the outline/main loop. The
 	// outline pass draws back faces, so it inverts culling.
 	void NPRSnapshotPassState(IShaderShadow *pShaderShadow, IMaterialVar **params,
-		bool outline, bool flashlight, bool translucent, bool alphaTest, float alphaTestRef)
+		bool outline, bool renderBackface, bool flashlight, bool translucent,
+		bool alphaTest, float alphaTestRef)
 	{
-		pShaderShadow->EnableCulling(!outline && !IS_FLAG_SET(MATERIAL_VAR_NOCULL));
+		pShaderShadow->EnableCulling(!outline && !renderBackface
+			&& !IS_FLAG_SET(MATERIAL_VAR_NOCULL));
 		pShaderShadow->EnableAlphaTest(alphaTest);
 		if (alphaTest && alphaTestRef > 0.0f)
 			pShaderShadow->AlphaFunc(SHADER_ALPHAFUNC_GEQUAL, alphaTestRef);
@@ -45,6 +48,12 @@ protected:
 		else if (translucent)
 			pShaderShadow->BlendFunc(SHADER_BLEND_SRC_ALPHA, SHADER_BLEND_ONE_MINUS_SRC_ALPHA);
 		pShaderShadow->EnableAlphaWrites(!flashlight && !translucent);
+	}
+
+	void NPRSetRenderBackface(IShaderDynamicAPI *pShaderAPI, bool renderBackface)
+	{
+		float value[4] = { renderBackface ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f };
+		pShaderAPI->SetPixelShaderConstant(NPR_PSREG_RENDER_BACKFACE, value);
 	}
 
 	int NPRShadowFilterMode(bool flashlight) const

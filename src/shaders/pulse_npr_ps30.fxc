@@ -95,6 +95,7 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 	float3 outlineBase = lerp(outlineTint, baseSample.rgb * outlineTint, g_DetailParams.z);
 	float3 color = outlineBase * saturate(lighting);
 #else
+	normal = NPRTwoSidedNormal(normal, faceSign);
 	float3 viewDirection = normalize(g_EyePos.xyz - i.worldPos);
 	float3 baseColor = baseSample.rgb;
 	float3 shadowColor = baseColor * g_ShadowTint.rgb;
@@ -125,7 +126,7 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 	// Matcap reflection: additive in red, multiplicative in green, indexed by the
 	// view-space normal. This is the slot MMD's spa and sph maps use.
 	float effectVisibility = saturate(max(effectLighting.r, max(effectLighting.g, effectLighting.b)));
-	float2 reflectionCoord = normalize(i.viewNormal).xy * 0.5 + 0.5;
+	float2 reflectionCoord = NPRTwoSidedNormal(normalize(i.viewNormal), faceSign).xy * 0.5 + 0.5;
 	float2 reflection = tex2D(ReflectionSampler, reflectionCoord).rg;
 	float reflectionMask = saturate(g_ReflectionAdd.a) * effectVisibility;
 	color = color * lerp(1.0, reflection.g * g_ReflectionMultiply.rgb, reflectionMask)

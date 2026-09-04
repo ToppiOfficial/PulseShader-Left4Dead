@@ -49,6 +49,7 @@ struct NPR_Vars_t
 	int faceYaw;
 	int eyelid;
 	int flashlightTexture;
+	int renderBackface;
 };
 
 BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
@@ -88,6 +89,7 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 		SHADER_PARAM(FACECHEEKSPREAD, SHADER_PARAM_TYPE_FLOAT, "1", "Widens the light angles the cheek wing reads at; 1 matches the original, 3 covers most of the wing");
 		SHADER_PARAM(EYELID, SHADER_PARAM_TYPE_BOOL, "0", "Draw over the front hair: for eyelash and eyebrow meshes that read through the bangs");
 		SHADER_PARAM(FACEYAW, SHADER_PARAM_TYPE_FLOAT, "270", "Degrees the reference pose faces away from +X. 270 is -Y, what these ports export; 0 is the studiomdl convention");
+		SHADER_PARAM(RENDERBACKFACE, SHADER_PARAM_TYPE_BOOL, "0", "Draw backfaces with reversed shading normals");
 	END_SHADER_PARAMS;
 
 	void SetupVars(NPR_Vars_t &info)
@@ -131,6 +133,7 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 		info.faceYaw = FACEYAW;
 		info.eyelid = EYELID;
 		info.flashlightTexture = FLASHLIGHTTEXTURE;
+		info.renderBackface = RENDERBACKFACE;
 	}
 
 	SHADER_INIT_PARAMS()
@@ -201,10 +204,13 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 		// $eyelid suppresses the pass rather than relying on the width being left at 0.
 		bool outlineEnabled = !flashlight && !eyelid
 			&& params[info.outlineWidth]->GetFloatValue() > 0.0f;
+		bool renderBackface = params[info.renderBackface]->GetIntValue() != 0
+			&& !IS_FLAG_SET(MATERIAL_VAR_NOCULL);
 
 		for (int pass = 0; pass < 2; ++pass)
 		{
 			bool outline = pass == 0;
+			bool renderBackfacePass = renderBackface && !outline;
 			bool envmap = hasEnvMap && !outline && !face && !flashlight;
 			if (outline && !outlineEnabled)
 			{
@@ -214,7 +220,8 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 
 			if (IsSnapshotting())
 			{
-				NPRSnapshotPassState(pShaderShadow, params, outline, flashlight, translucent,
+				NPRSnapshotPassState(pShaderShadow, params, outline, renderBackfacePass,
+					flashlight, translucent,
 					alphaTest, params[info.alphaTestReference]->GetFloatValue());
 
 				for (int sampler = SHADER_SAMPLER0; sampler <= SHADER_SAMPLER3; ++sampler)
@@ -326,6 +333,7 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 				params[info.outlineColor]->GetVecValue(outlineColor, 3);
 				pShaderAPI->SetPixelShaderConstant(46, outlineColor);
 				NPRSetDetailTint(pShaderAPI, params, info.detailTint, info.detailBlendFactor);
+				NPRSetRenderBackface(pShaderAPI, renderBackfacePass);
 				// A zero width still leaves a hairline at the silhouette, so it gates the
 				// brightness instead of relying on the edge term alone.
 				float rimLightWidth = params[info.rimLightWidth]->GetFloatValue();

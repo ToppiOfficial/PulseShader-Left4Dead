@@ -178,6 +178,7 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 	float3 color = outlineBase * saturate(lighting);
 #else
 	float3 normal = normalize(i.worldNormal);
+	normal = NPRTwoSidedNormal(normal, faceSign);
 	float3 viewDirection = normalize(g_EyePos.xyz - i.worldPos);
 #if FACE
 	float3 faceForward = normalize(i.faceForward);
@@ -255,7 +256,7 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 	float rimEdge = saturate(dot(normal, viewDirection)) - g_DetailParams.z;
 	float rim = 1.0 - NPRCelStep(rimEdge);
 	color += baseColor * g_Highlight.rgb * optionMask.b * g_DetailParams.w * rim * effectVisibility;
-	float2 reflectionCoord = normalize(i.viewNormal).xy * 0.5 + 0.5;
+	float2 reflectionCoord = NPRTwoSidedNormal(normalize(i.viewNormal), faceSign).xy * 0.5 + 0.5;
 	float2 reflection = tex2D(ReflectionSampler, reflectionCoord).rg;
 	float reflectionMask = saturate(optionMask.r * g_ReflectionAdd.a) * effectVisibility;
 	color = color * lerp(1.0, reflection.g * g_ReflectionMultiply.rgb, reflectionMask)

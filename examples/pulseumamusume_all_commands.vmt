@@ -12,6 +12,7 @@
 	$translucent "0" // Enables standard alpha blending.
 	$additive "0" // Selects translucency, but this shader still uses standard alpha blending.
 	$nocull "0" // Draws both sides when enabled.
+	$renderbackface "0" // Draws backfaces with reversed shading normals; $nocull wins.
 
 	$baseshadetexture "models/your_model/base_shade" // sRGB authored shadow-side base color.
 	$aohatexture "models/your_model/aoha" // Linear packed map: R AO, G highlight, B opacity.

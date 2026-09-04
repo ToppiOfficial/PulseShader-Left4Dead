@@ -201,9 +201,9 @@ protected:
 	// the metal Fresnel back to plain Schlick.
 	void PBRSetOpenPBRParams(IShaderDynamicAPI *pShaderAPI, IMaterialVar **params,
 		int specularIorVar, int specularWeightVar, int baseDiffuseRoughnessVar,
-		int specularTintVar)
+		int specularTintVar, bool renderBackface)
 	{
-		float openpbrConst[4] = { 1.5f, 1.0f, 0.0f, 0.0f };
+		float openpbrConst[4] = { 1.5f, 1.0f, 0.0f, renderBackface ? 1.0f : 0.0f };
 		if (specularIorVar != -1)
 			openpbrConst[0] = params[specularIorVar]->GetFloatValue();
 		if (specularWeightVar != -1)

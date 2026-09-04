@@ -12,6 +12,7 @@
 	$translucent "0" // Enables standard alpha blending.
 	$additive "0" // Selects translucency, but PulseNPR still uses standard alpha blending.
 	$nocull "0" // Draws both sides when enabled.
+	$renderbackface "0" // Draws backfaces with reversed shading normals; $nocull wins.
 
 	$shadowcolor "[0.6 0.6 0.7]" // Base color tint on the shadow side of the cel step.
 	$reflectiontexture "models/your_model/reflection" // Linear matcap: R additive, G multiplicative.

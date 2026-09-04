@@ -44,6 +44,7 @@ struct PBR_Vars_t
     int detailTint;
     int detailTextureTransform;
     int lightWarpTexture;
+    int renderBackface;
 };
 
 
@@ -73,6 +74,7 @@ BEGIN_PBR_SHADER(PulsePBR, "Physically based rendering for models")
         SHADER_PARAM(DETAILTINT, SHADER_PARAM_TYPE_COLOR, "[1 1 1]", "Detail texture tint");
         SHADER_PARAM(DETAILTEXTURETRANSFORM, SHADER_PARAM_TYPE_MATRIX, "center .5 .5 scale 1 1 rotate 0 translate 0 0", "$detail texcoord transform");
         SHADER_PARAM(LIGHTWARPTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "1D ramp remapping the diffuse falloff of direct light");
+        SHADER_PARAM(RENDERBACKFACE, SHADER_PARAM_TYPE_BOOL, "0", "Draw backfaces with reversed shading normals");
     END_SHADER_PARAMS;
 
     // Needed at shadow-state time, before info is populated.
@@ -109,6 +111,7 @@ BEGIN_PBR_SHADER(PulsePBR, "Physically based rendering for models")
         info.detailTint = DETAILTINT;
         info.detailTextureTransform = DETAILTEXTURETRANSFORM;
         info.lightWarpTexture = LIGHTWARPTEXTURE;
+        info.renderBackface = RENDERBACKFACE;
     };
 
     // Initializing parameters
@@ -211,6 +214,8 @@ BEGIN_PBR_SHADER(PulsePBR, "Physically based rendering for models")
         bool bHasSpecularTexture = (info.specularTexture != -1) && params[info.specularTexture]->IsTexture();
         bool bHasDetailTexture = (info.detailTexture != -1) && params[info.detailTexture]->IsTexture();
         bool bHasLightWarpTexture = (info.lightWarpTexture != -1) && params[info.lightWarpTexture]->IsTexture();
+        bool bRenderBackface = params[info.renderBackface]->GetIntValue() != 0
+            && !IS_FLAG_SET(MATERIAL_VAR_NOCULL);
 
         // Determining whether we're dealing with a fully opaque material
         BlendType_t nBlendType = EvaluateBlendRequirements(info.baseTexture, true);
@@ -218,6 +223,8 @@ BEGIN_PBR_SHADER(PulsePBR, "Physically based rendering for models")
 
         if (IsSnapshotting())
         {
+            pShaderShadow->EnableCulling(!bRenderBackface && !IS_FLAG_SET(MATERIAL_VAR_NOCULL));
+
             // If alphatest is on, enable it
             pShaderShadow->EnableAlphaTest(bIsAlphaTested);
 
@@ -433,7 +440,7 @@ BEGIN_PBR_SHADER(PulsePBR, "Physically based rendering for models")
             pShaderAPI->SetPixelShaderConstant(PBR_PSREG_MISC, miscConst, 1);
 
             PBRSetOpenPBRParams(pShaderAPI, params, info.specularIor, info.specularWeight,
-                                info.baseDiffuseRoughness, info.specularTint);
+                                info.baseDiffuseRoughness, info.specularTint, bRenderBackface);
 
             // Setting up dynamic vertex shader
             DECLARE_DYNAMIC_VERTEX_SHADER(pulse_pbr_vs30);

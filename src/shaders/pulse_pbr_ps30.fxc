@@ -53,7 +53,8 @@ const float4 g_DetailTint_and_BlendFactor       : register( c10 );
 // yzw = flat metalness/roughness/AO scaling the MRAO sample, which against the
 // white fallback texture makes them the values themselves.
 const float4 g_MiscParms                        : register( c26 );
-// x = $specularior, y = $specularweight, z = $basediffuseroughness, w unused.
+// x = $specularior, y = $specularweight, z = $basediffuseroughness,
+// w = $renderbackface after $nocull precedence.
 const float4 g_OpenPBRParms                     : register( c27 );
 // rgb = $speculartint, the F82 tint applied to the metal Fresnel curve. Above
 // the shared map, which runs out at c31 and whose low slots variants already
@@ -94,7 +95,7 @@ struct PS_INPUT
 
 
 // Entry point
-float4 main(PS_INPUT i) : COLOR
+float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 {
     #define EnvAmbientCube cAmbientCube
 
@@ -109,6 +110,7 @@ float4 main(PS_INPUT i) : COLOR
 
     float3 textureNormal = normalize((tex2D( NormalTextureSampler,  correctedTexCoord).xyz - float3(0.5, 0.5, 0.5)) * 2);
     float3 normal = normalize(mul(textureNormal, normalBasis)); // World Normal
+    normal = g_OpenPBRParms.w != 0.0 ? normal * faceSign : normal;
 
     float4 albedo = tex2D(BaseTextureSampler, correctedTexCoord);
 

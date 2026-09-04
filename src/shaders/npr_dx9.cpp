@@ -42,6 +42,7 @@ struct NPR_Vars_t
 	int detailTint;
 	int detailTextureTransform;
 	int flashlightTexture;
+	int renderBackface;
 };
 
 BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
@@ -67,6 +68,7 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 		SHADER_PARAM(DETAILBLENDFACTOR, SHADER_PARAM_TYPE_FLOAT, "1", "Detail texture blend strength");
 		SHADER_PARAM(DETAILTINT, SHADER_PARAM_TYPE_COLOR, "[1 1 1]", "Detail texture tint");
 		SHADER_PARAM(DETAILTEXTURETRANSFORM, SHADER_PARAM_TYPE_MATRIX, "center .5 .5 scale 1 1 rotate 0 translate 0 0", "$detail texture transform");
+		SHADER_PARAM(RENDERBACKFACE, SHADER_PARAM_TYPE_BOOL, "0", "Draw backfaces with reversed shading normals");
 	END_SHADER_PARAMS;
 
 	void SetupVars(NPR_Vars_t &info)
@@ -96,6 +98,7 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 		info.detailTint = DETAILTINT;
 		info.detailTextureTransform = DETAILTEXTURETRANSFORM;
 		info.flashlightTexture = FLASHLIGHTTEXTURE;
+		info.renderBackface = RENDERBACKFACE;
 	}
 
 	SHADER_INIT_PARAMS()
@@ -143,10 +146,13 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 		bool translucent = blendType == BT_BLEND || blendType == BT_BLENDADD;
 		bool alphaTest = IS_FLAG_SET(MATERIAL_VAR_ALPHATEST);
 		bool outlineEnabled = !flashlight && params[info.outlineWidth]->GetFloatValue() > 0.0f;
+		bool renderBackface = params[info.renderBackface]->GetIntValue() != 0
+			&& !IS_FLAG_SET(MATERIAL_VAR_NOCULL);
 
 		for (int pass = 0; pass < 2; ++pass)
 		{
 			bool outline = pass == 0;
+			bool renderBackfacePass = renderBackface && !outline;
 			if (outline && !outlineEnabled)
 			{
 				Draw(false);
@@ -155,7 +161,8 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 
 			if (IsSnapshotting())
 			{
-				NPRSnapshotPassState(pShaderShadow, params, outline, flashlight, translucent,
+				NPRSnapshotPassState(pShaderShadow, params, outline, renderBackfacePass,
+					flashlight, translucent,
 					alphaTest, params[info.alphaTestReference]->GetFloatValue());
 
 				pShaderShadow->EnableTexture(NPR_SAMPLER_BASE, true);
@@ -237,6 +244,7 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 				pShaderAPI->SetPixelShaderConstant(46, outlineColor);
 
 				NPRSetDetailTint(pShaderAPI, params, info.detailTint, info.detailBlendFactor);
+				NPRSetRenderBackface(pShaderAPI, renderBackfacePass);
 
 				// c48: x detail blend mode, z outline base blend.
 				float detailParams[4] = {

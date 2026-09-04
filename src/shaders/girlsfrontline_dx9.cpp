@@ -68,6 +68,7 @@ struct PBR_Vars_t
     int outlineAngle;
     int outlineColor;
     int outlineBaseBlend;
+    int renderBackface;
 };
 
 
@@ -170,6 +171,7 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
         SHADER_PARAM(CASTHAIRSHADOW, SHADER_PARAM_TYPE_BOOL, "0", "Cast this mesh's silhouette into the stencil buffer for $face materials to receive");
         SHADER_PARAM(HAIRSHADOWOFFSET, SHADER_PARAM_TYPE_VEC3, "[0 0 -2]", "World-space displacement of the cast silhouette, in model units");
         SHADER_PARAM(HAIRSHADOWSTRENGTH, SHADER_PARAM_TYPE_FLOAT, "0.5", "On the $casthairshadow material: how far the shadow darkens the face, 0 is invisible and 1 is black");
+        SHADER_PARAM(RENDERBACKFACE, SHADER_PARAM_TYPE_BOOL, "0", "Draw backfaces with reversed shading normals");
     END_SHADER_PARAMS;
 
     // Needed at shadow-state time, before info is populated.
@@ -239,6 +241,7 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
         info.outlineAngle = OUTLINEANGLE;
         info.outlineColor = OUTLINECOLOR;
         info.outlineBaseBlend = OUTLINEBASEBLEND;
+        info.renderBackface = RENDERBACKFACE;
     };
 
     // Initializing parameters
@@ -363,6 +366,8 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
         bool bEyelid = params[info.eyelid]->GetIntValue() != 0;
         bool bHasRampTexture = params[info.rampTexture]->IsTexture();
         bool bFace = IsFaceMaterial(params, info) && params[info.faceMapTexture]->IsTexture();
+        bool bRenderBackface = params[info.renderBackface]->GetIntValue() != 0
+            && !IS_FLAG_SET(MATERIAL_VAR_NOCULL);
 
         // Determining whether we're dealing with a fully opaque material
         BlendType_t nBlendType = EvaluateBlendRequirements(info.baseTexture, true);
@@ -390,6 +395,7 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
         // nothing does it is against the lash pass 1 already drew, so nothing changes.
         bool bEyelidPass = pass == 2 && bEyelid;
         bool bHairShadow = pass == 2 && !bEyelid;
+        bool bRenderBackfacePass = bRenderBackface && !bOutline && !bHairShadow;
         // The face marks its own visible pixels in stencil; the hair then draws the
         // shadow onto them. Both happen in one frame, and by the time the hair runs
         // the face has written depth, so strands behind the skull fail and are rejected.
@@ -410,7 +416,8 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
         if (IsSnapshotting())
         {
             // The outline draws the back faces of the expanded hull.
-            pShaderShadow->EnableCulling(!bOutline && !IS_FLAG_SET(MATERIAL_VAR_NOCULL));
+            pShaderShadow->EnableCulling(!bOutline && !bRenderBackfacePass
+                && !IS_FLAG_SET(MATERIAL_VAR_NOCULL));
 
             if (bHairShadow)
             {
@@ -754,7 +761,7 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
             pShaderAPI->SetPixelShaderConstant(36, eyelidBlend, 1);
 
             PBRSetOpenPBRParams(pShaderAPI, params, info.specularIor, info.specularWeight,
-                                info.baseDiffuseRoughness, info.specularTint);
+                                info.baseDiffuseRoughness, info.specularTint, bRenderBackfacePass);
 
             // Setting up dynamic vertex shader
             DECLARE_DYNAMIC_VERTEX_SHADER(pulse_girlsfrontline_vs30);

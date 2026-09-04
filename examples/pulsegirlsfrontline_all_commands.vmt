@@ -12,6 +12,7 @@
 	$translucent "0" // Enables standard alpha blending and disables the outline.
 	$additive "0" // Enables additive blending and disables the outline.
 	$nocull "0" // Draws both sides when enabled.
+	$renderbackface "0" // Draws backfaces with reversed shading normals; $nocull wins.
 	$halflambert "0" // Uses half-Lambert diffuse falloff when enabled.
 
 	$envmap "env_cubemap" // Cubemap reflection; defaults to env_cubemap when omitted.

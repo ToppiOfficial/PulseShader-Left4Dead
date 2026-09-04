@@ -197,7 +197,8 @@ BEGIN_NPR_SHADER(PulseToonEye, "Toon eyeball shader: eyerefract projection with 
 				}
 				else
 				{
-					NPRSnapshotPassState(pShaderShadow, params, false, flashlight, false, false, 0.0f);
+					NPRSnapshotPassState(pShaderShadow, params, false, false,
+						flashlight, false, false, 0.0f);
 				}
 
 				pShaderShadow->EnableTexture(SHADER_SAMPLER0, true); // base

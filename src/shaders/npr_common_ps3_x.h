@@ -14,6 +14,12 @@
 // Direct light is scaled down before the cel step so a lit surface lands inside
 // the ramp instead of clipping white.
 static const float NPR_LIGHT_SCALE = 0.7;
+const float4 g_RenderBackface : register(c53);
+
+float3 NPRTwoSidedNormal(float3 normal, float faceSign)
+{
+	return g_RenderBackface.x != 0.0 ? normal * faceSign : normal;
+}
 
 // Per-light attenuation is packed into one interpolator; the loop index has to
 // be resolved statically because ps_3_0 cannot swizzle by a variable.

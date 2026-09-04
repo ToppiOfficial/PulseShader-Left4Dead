@@ -12,6 +12,7 @@
 	$translucent "0" // Enables standard alpha blending.
 	$additive "0" // Enables additive blending.
 	$halflambert "0" // Uses half-Lambert diffuse falloff when enabled.
+	$renderbackface "0" // Draws backfaces with reversed shading normals; $nocull wins.
 
 	$envmap "env_cubemap" // Cubemap reflection; defaults to env_cubemap when omitted.
 	$mraotexture "models/your_model/mrao" // Linear map: R metalness, G roughness, B ambient occlusion.
