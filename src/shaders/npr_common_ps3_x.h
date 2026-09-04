@@ -44,6 +44,14 @@ float NPRCelStep(float edge)
 	return saturate(edge / max(fwidth(edge), 0.0001));
 }
 
+// Keep cubemap radiance at the same local intensity as the ambient probe.
+float NPRReflectionIntensity(float3 ambientCube[6])
+{
+	float3 average = (ambientCube[0] + ambientCube[1] + ambientCube[2]
+		+ ambientCube[3] + ambientCube[4] + ambientCube[5]) / 6.0;
+	return saturate(dot(average, float3(0.2126, 0.7152, 0.0722)));
+}
+
 #if FLASHLIGHT
 // Cookie, shadow, and distance falloff for the flashlight pass. Returns the
 // light's colour contribution and writes the direction to it. Pixels behind the

@@ -223,7 +223,8 @@ BEGIN_NPR_SHADER(PulseToonEye, "Toon eyeball shader: eyerefract projection with 
 				if (envmap)
 				{
 					pShaderShadow->EnableTexture(SAMPLER_ENVMAP, true);
-					pShaderShadow->EnableSRGBRead(SAMPLER_ENVMAP, true);
+					if (g_pHardwareConfig->GetHDRType() == HDR_TYPE_NONE)
+						pShaderShadow->EnableSRGBRead(SAMPLER_ENVMAP, true);
 				}
 				if (flashlight)
 					NPRSnapshotFlashlightSamplers(pShaderShadow, shadowFilter);

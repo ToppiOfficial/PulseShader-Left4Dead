@@ -309,13 +309,15 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
         // Source has no prefiltered radiance, so the cubemap's own mip chain
         // stands in and the ambient cube takes over as roughness rises.
         float4 specularUV = float4(specularReflectionVector, surface.roughness * ENVMAPLOD);
-        float3 lookupHigh = ENV_MAP_SCALE * texCUBElod(EnvmapSampler, specularUV).xyz;
+        float3 lookupHigh = openpbrCalibrateReflection(
+                ENV_MAP_SCALE * texCUBElod(EnvmapSampler, specularUV).xyz,
+                EnvAmbientCube, surface.metalness);
         float3 lookupLow = PixelShaderAmbientLight(specularReflectionVector, EnvAmbientCube);
         float3 specularIrradiance = lerp(lookupHigh, lookupLow, surface.roughness * surface.roughness);
-        float3 specularIBL = openpbrEnvSpecular(surface, specularIrradiance);
+        float3 reflectionIBL = openpbrEnvReflection(surface, specularIrradiance);
 
         ambientLighting = diffuseIBL * ambientOcclusion
-                        + specularIBL * openpbrSpecularOcclusion(surface, ambientOcclusion);
+                        + reflectionIBL * openpbrSpecularOcclusion(surface, ambientOcclusion);
     }
     // End ambient
 

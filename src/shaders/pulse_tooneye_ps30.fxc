@@ -162,9 +162,10 @@ float4 main(PS_INPUT i) : COLOR
 	// Metal-like reflection: the cube is tinted by the iris color and $envmaptint,
 	// then masked to the iris using the same anti-aliased boundary as the region tint.
 #if ENVMAP
-	float3 reflection = texCUBE(EnvmapSampler, reflect(-viewDir, normal)).rgb;
+	float3 reflection = ENV_MAP_SCALE * texCUBE(EnvmapSampler, reflect(-viewDir, normal)).rgb;
 	float reflectMask = 1.0 - tintMask;
-	color += reflection * baseCol * g_EnvmapTint.rgb * g_EnvmapTint.a * reflectMask;
+	color += reflection * NPRReflectionIntensity(cAmbientCube)
+		* baseCol * g_EnvmapTint.rgb * g_EnvmapTint.a * reflectMask;
 #endif
 
 	// Selfillum: masked pixels read as unlit eye color. The mask is the texture's red

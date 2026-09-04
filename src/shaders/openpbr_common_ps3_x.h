@@ -269,9 +269,9 @@ float3 openpbrDirect(OpenPBRSurface s, float3 lightIn, float3 lightIntensity, fl
 #endif
 }
 
-// Split-sum specular for an environment radiance sample. Applies to metals and
-// dielectrics alike - the DFG terms already carry the difference.
-float3 openpbrEnvSpecular(OpenPBRSurface s, float3 radiance)
+// Split-sum reflection for an environment radiance sample. Applies to metals
+// and dielectrics alike - the DFG terms already carry the difference.
+float3 openpbrEnvReflection(OpenPBRSurface s, float3 radiance)
 {
     float3 E = s.F0 * s.dfg.x + s.dfg.y;
     return radiance * E * s.energyComp * s.specularColor;
@@ -336,4 +336,14 @@ float GetAttenForLight(float4 lightAtten, int lightNum)
 float3 ambientLookup(float3 normal, float3 EnvAmbientCube[6])
 {
     return PixelShaderAmbientLight(normal, EnvAmbientCube);
+}
+
+// Source stores diffuse irradiance and cubemap radiance separately. Dielectrics
+// follow local probe intensity while metals retain the captured radiance.
+float3 openpbrCalibrateReflection(float3 radiance, float3 ambientCube[6], float metalness)
+{
+    float3 average = (ambientCube[0] + ambientCube[1] + ambientCube[2]
+                    + ambientCube[3] + ambientCube[4] + ambientCube[5]) / 6.0;
+    float intensity = saturate(dot(average, float3(0.2126, 0.7152, 0.0722)));
+    return radiance * lerp(intensity, 1.0, metalness);
 }

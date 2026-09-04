@@ -264,8 +264,9 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 #if ENVMAP
 	// RSRFL green doubles as a metalness mask: the cube reflection is tinted by the base
 	// color like a metal, but the diffuse term underneath is left unchanged (no darkening).
-	float3 envColor = texCUBE(EnvmapSampler, reflect(-viewDirection, normal)).rgb;
-	color += envColor * baseColor * g_EnvmapTint.rgb * optionMask.g;
+	float3 envColor = ENV_MAP_SCALE * texCUBE(EnvmapSampler, reflect(-viewDirection, normal)).rgb;
+	color += envColor * NPRReflectionIntensity(cAmbientCube)
+		* baseColor * g_EnvmapTint.rgb * optionMask.g;
 #endif
 #endif
 #endif

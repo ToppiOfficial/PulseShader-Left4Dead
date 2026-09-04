@@ -235,7 +235,8 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 					if (envmap)
 					{
 						pShaderShadow->EnableTexture(SHADER_SAMPLER9, true);
-						pShaderShadow->EnableSRGBRead(SHADER_SAMPLER9, true);
+						if (g_pHardwareConfig->GetHDRType() == HDR_TYPE_NONE)
+							pShaderShadow->EnableSRGBRead(SHADER_SAMPLER9, true);
 					}
 				if (hasDetail)
 				{
