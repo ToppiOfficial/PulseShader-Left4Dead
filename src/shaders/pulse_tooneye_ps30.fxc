@@ -159,12 +159,11 @@ float4 main(PS_INPUT i) : COLOR
 		color += EyeShade(baseCol, shadeCol, specColor, normal, viewDir, lightDir) * lightColor;
 	}
 
-	// Metal-like reflection: the cube is tinted by the eye's own color and $envmaptint
-	// and added on top, so the diffuse coloring underneath is untouched. The mask is
-	// hardcoded from the base map's RGB average as greyscale (not its alpha).
+	// Metal-like reflection: the cube is tinted by the iris color and $envmaptint,
+	// then masked to the iris using the same anti-aliased boundary as the region tint.
 #if ENVMAP
 	float3 reflection = texCUBE(EnvmapSampler, reflect(-viewDir, normal)).rgb;
-	float reflectMask = (base.r + base.g + base.b) / 3.0;
+	float reflectMask = 1.0 - tintMask;
 	color += reflection * baseCol * g_EnvmapTint.rgb * g_EnvmapTint.a * reflectMask;
 #endif
 

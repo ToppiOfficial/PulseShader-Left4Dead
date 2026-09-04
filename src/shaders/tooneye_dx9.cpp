@@ -33,6 +33,7 @@ struct ToonEye_Vars_t
 	int alpha;
 	int shadeTexture;
 	int specularTexture;
+	int specularTextureFrame;
 	int lightWarpTexture;
 	int envMap;
 	int envMapTint;
@@ -44,6 +45,7 @@ struct ToonEye_Vars_t
 	int irisMaskSoftness;
 	int selfIllum;
 	int selfIllumMask;
+	int selfIllumMaskFrame;
 	int selfIllumTint;
 	int eyelid;
 	int eyelidBlend;
@@ -60,6 +62,7 @@ BEGIN_NPR_SHADER(PulseToonEye, "Toon eyeball shader: eyerefract projection with 
 	BEGIN_SHADER_PARAMS;
 		SHADER_PARAM(BASESHADETEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Shaded base texture, blended toward as the eye turns into shadow; defaults to $basetexture");
 		SHADER_PARAM(SPECULARTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Eyeball-UV shine mask (red), lit like a highlight when light hits it");
+		SHADER_PARAM(SPECULARTEXTUREFRAME, SHADER_PARAM_TYPE_INTEGER, "0", "Frame number for $speculartexture");
 		SHADER_PARAM(LIGHTWARPTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "1D ramp remapping the diffuse falloff");
 		SHADER_PARAM(ENVMAP, SHADER_PARAM_TYPE_ENVMAP, "", "Cubemap (env_cubemap or a baked cube) reflected on the iris only");
 		SHADER_PARAM(ENVMAPTINT, SHADER_PARAM_TYPE_COLOR, "[1 1 1]", "Iris reflection tint");
@@ -71,6 +74,7 @@ BEGIN_NPR_SHADER(PulseToonEye, "Toon eyeball shader: eyerefract projection with 
 		SHADER_PARAM(IRISMASKSOFTNESS, SHADER_PARAM_TYPE_FLOAT, "0", "Extra width added to the screen-space anti-aliased boundary; 0 is a crisp ~2px edge");
 		SHADER_PARAM(SELFILLUM, SHADER_PARAM_TYPE_BOOL, "0", "Enable selfillum from $selfillummask");
 		SHADER_PARAM(SELFILLUMMASK, SHADER_PARAM_TYPE_TEXTURE, "", "Selfillum mask (red); masked pixels read as unlit eye color");
+		SHADER_PARAM(SELFILLUMMASKFRAME, SHADER_PARAM_TYPE_INTEGER, "0", "Frame number for $selfillummask");
 		SHADER_PARAM(SELFILLUMTINT, SHADER_PARAM_TYPE_COLOR, "[1 1 1]", "Selfillum tint");
 		SHADER_PARAM(EYELID, SHADER_PARAM_TYPE_BOOL, "0", "Draw over the front hair: the iris reads through the bangs");
 		SHADER_PARAM(EYELIDBLEND, SHADER_PARAM_TYPE_FLOAT, "1", "Opacity of the iris-over-hair overlay; not usable when the hair is a PulseUmamusume material");
@@ -97,6 +101,7 @@ BEGIN_NPR_SHADER(PulseToonEye, "Toon eyeball shader: eyerefract projection with 
 		info.alpha = ALPHA;
 		info.shadeTexture = BASESHADETEXTURE;
 		info.specularTexture = SPECULARTEXTURE;
+		info.specularTextureFrame = SPECULARTEXTUREFRAME;
 		info.lightWarpTexture = LIGHTWARPTEXTURE;
 		info.envMap = ENVMAP;
 		info.envMapTint = ENVMAPTINT;
@@ -108,6 +113,7 @@ BEGIN_NPR_SHADER(PulseToonEye, "Toon eyeball shader: eyerefract projection with 
 		info.irisMaskSoftness = IRISMASKSOFTNESS;
 		info.selfIllum = SELFILLUM;
 		info.selfIllumMask = SELFILLUMMASK;
+		info.selfIllumMaskFrame = SELFILLUMMASKFRAME;
 		info.selfIllumTint = SELFILLUMTINT;
 		info.eyelid = EYELID;
 		info.eyelidBlend = EYELIDBLEND;
@@ -246,13 +252,13 @@ BEGIN_NPR_SHADER(PulseToonEye, "Toon eyeball shader: eyerefract projection with 
 			{
 				if (hasBase) BindTexture(SHADER_SAMPLER0, info.baseTexture, info.baseTextureFrame);
 				else pShaderAPI->BindStandardTexture(SHADER_SAMPLER0, TEXTURE_WHITE);
-				if (hasShade) BindTexture(SHADER_SAMPLER1, info.shadeTexture, 0);
+				if (hasShade) BindTexture(SHADER_SAMPLER1, info.shadeTexture, info.baseTextureFrame);
 				else if (hasBase) BindTexture(SHADER_SAMPLER1, info.baseTexture, info.baseTextureFrame);
 				else pShaderAPI->BindStandardTexture(SHADER_SAMPLER1, TEXTURE_WHITE);
-				if (hasSpecular) BindTexture(SHADER_SAMPLER2, info.specularTexture, 0);
+				if (hasSpecular) BindTexture(SHADER_SAMPLER2, info.specularTexture, info.specularTextureFrame);
 				else pShaderAPI->BindStandardTexture(SHADER_SAMPLER2, TEXTURE_BLACK);
 				if (hasLightWarp) BindTexture(SHADER_SAMPLER3, info.lightWarpTexture, 0);
-				if (hasSelfIllumMask) BindTexture(SHADER_SAMPLER8, info.selfIllumMask, 0);
+				if (hasSelfIllumMask) BindTexture(SHADER_SAMPLER8, info.selfIllumMask, info.selfIllumMaskFrame);
 				else pShaderAPI->BindStandardTexture(SHADER_SAMPLER8, TEXTURE_BLACK);
 				if (envmap) BindTexture(SAMPLER_ENVMAP, info.envMap, 0);
 
