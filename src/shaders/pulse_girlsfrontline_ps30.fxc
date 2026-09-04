@@ -18,7 +18,6 @@
 // DYNAMIC: "WRITEWATERFOGTODESTALPHA"  "0..1"
 // DYNAMIC: "PIXELFOGTYPE"              "0..1"
 // DYNAMIC: "NUM_LIGHTS"                "0..4"
-// DYNAMIC: "WRITE_DEPTH_TO_DESTALPHA"  "0..1"
 // DYNAMIC: "FLASHLIGHTSHADOWS"         "0..1"
 
 // Can't write fog to alpha if there is no fog
@@ -408,8 +407,6 @@ float alpha = albedo.a * g_EyelidBlend.x * g_DiffuseModulation.a;
 #endif
 #endif
 
-    bool bWriteDepthToAlpha = (WRITE_DEPTH_TO_DESTALPHA != 0) && (WRITEWATERFOGTODESTALPHA == 0);
-
 #if FACE
     float3 combinedLighting = directLighting + ambientLighting;
 #else
@@ -426,5 +423,5 @@ float alpha = albedo.a * g_EyelidBlend.x * g_DiffuseModulation.a;
     // arrive folded into the modulation constant, matching stock Source shaders.
     combinedLighting *= g_DiffuseModulation.rgb;
 
-    return FinalOutput(float4(combinedLighting, alpha), fogFactor, PIXELFOGTYPE, TONEMAP_SCALE_LINEAR, bWriteDepthToAlpha, i.projPos.z);
+    return FinalOutput(float4(combinedLighting, alpha), fogFactor, PIXELFOGTYPE, TONEMAP_SCALE_LINEAR, false, i.projPos.z);
 }

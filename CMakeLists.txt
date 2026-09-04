@@ -35,45 +35,35 @@ endforeach()
 list(APPEND FXC_HINTS "C:/Program Files (x86)/Windows Kits/10/bin/x64")
 find_program(FXC_EXECUTABLE fxc.exe HINTS ${FXC_HINTS} REQUIRED)
 
-# One VS/PS pair per shader variant. fxc_prep.pl writes filelistgen.txt into its
-# cwd, so each pair compiles in a private work dir rather than a shared one.
+# Each shader stage has a private work dir because fxc_prep.pl writes
+# filelistgen.txt into its current directory.
 set(PULSE_SHADER_OUTPUTS)
 
 function(pulse_add_shader_pair)
-    cmake_parse_arguments(ARG "" "PREFIX" "EXTRA_SOURCES" ${ARGN})
+    cmake_parse_arguments(ARG "" "PREFIX" "VS_EXTRA_SOURCES;PS_EXTRA_SOURCES" ${ARGN})
 
     set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/shaders")
-    set(WORK_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaderwork/${ARG_PREFIX}")
-
-    set(COPY_FILES "${SRC_DIR}/${ARG_PREFIX}_vs30.fxc" "${SRC_DIR}/${ARG_PREFIX}_ps30.fxc")
-    foreach(EXTRA IN LISTS ARG_EXTRA_SOURCES)
-        list(APPEND COPY_FILES "${SRC_DIR}/${EXTRA}")
-    endforeach()
-
-    set(INPUTS ${COPY_FILES}
-        "${CMAKE_CURRENT_SOURCE_DIR}/tools/vcspack.py"
-        "${SWARM_SDK}/devtools/bin/fxc_prep.pl")
-
-    set(OUTPUTS
-        "${SHADER_INC_DIR}/${ARG_PREFIX}_vs30.inc"
-        "${SHADER_INC_DIR}/${ARG_PREFIX}_ps30.inc"
-        "${DIST_SHADER_DIR}/${ARG_PREFIX}_vs30.vcs"
-        "${DIST_SHADER_DIR}/${ARG_PREFIX}_ps30.vcs")
-
-    set(STAGE_COMMANDS
-        COMMAND "${CMAKE_COMMAND}" -E rm -rf "${WORK_DIR}"
-        COMMAND "${CMAKE_COMMAND}" -E make_directory "${WORK_DIR}" "${SHADER_INC_DIR}" "${DIST_SHADER_DIR}"
-        COMMAND "${CMAKE_COMMAND}" -E copy ${COPY_FILES} "${WORK_DIR}")
-
     foreach(STAGE vs30 ps30)
-        list(APPEND STAGE_COMMANDS
+        string(REPLACE "30" "" STAGE_KIND "${STAGE}")
+        string(TOUPPER "${STAGE_KIND}" STAGE_UPPER)
+        set(WORK_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaderwork/${ARG_PREFIX}_${STAGE}")
+        set(COPY_FILES "${SRC_DIR}/${ARG_PREFIX}_${STAGE}.fxc")
+        foreach(EXTRA IN LISTS ARG_${STAGE_UPPER}_EXTRA_SOURCES)
+            list(APPEND COPY_FILES "${SRC_DIR}/${EXTRA}")
+        endforeach()
+
+        set(OUTPUTS
+            "${SHADER_INC_DIR}/${ARG_PREFIX}_${STAGE}.inc"
+            "${DIST_SHADER_DIR}/${ARG_PREFIX}_${STAGE}.vcs")
+
+        add_custom_command(
+            OUTPUT ${OUTPUTS}
+            COMMAND "${CMAKE_COMMAND}" -E rm -rf "${WORK_DIR}"
+            COMMAND "${CMAKE_COMMAND}" -E make_directory "${WORK_DIR}" "${SHADER_INC_DIR}" "${DIST_SHADER_DIR}"
+            COMMAND "${CMAKE_COMMAND}" -E copy ${COPY_FILES} "${WORK_DIR}"
             COMMAND "${CMAKE_COMMAND}" -E chdir "${WORK_DIR}" "${PERL_EXECUTABLE}"
                     "${SWARM_SDK}/devtools/bin/fxc_prep.pl"
-                    "${ARG_PREFIX}_${STAGE}.fxc-----${ARG_PREFIX}_${STAGE}")
-    endforeach()
-
-    foreach(STAGE vs30 ps30)
-        list(APPEND STAGE_COMMANDS
+                    "${ARG_PREFIX}_${STAGE}.fxc-----${ARG_PREFIX}_${STAGE}"
             COMMAND "${CMAKE_COMMAND}" -E chdir "${WORK_DIR}" "${Python3_EXECUTABLE}"
                     "${CMAKE_CURRENT_SOURCE_DIR}/tools/vcspack.py" filelistgen.txt
                     --shader "${ARG_PREFIX}_${STAGE}"
@@ -83,25 +73,34 @@ function(pulse_add_shader_pair)
                     --include "${STDSHADERS}"
             COMMAND "${CMAKE_COMMAND}" -E copy
                     "${WORK_DIR}/fxctmp9_tmp/${ARG_PREFIX}_${STAGE}.inc"
-                    "${SHADER_INC_DIR}/${ARG_PREFIX}_${STAGE}.inc")
+                    "${SHADER_INC_DIR}/${ARG_PREFIX}_${STAGE}.inc"
+            DEPENDS ${COPY_FILES}
+                    "${CMAKE_CURRENT_SOURCE_DIR}/tools/vcspack.py"
+                    "${SWARM_SDK}/devtools/bin/fxc_prep.pl"
+            WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+            VERBATIM
+        )
+
+        list(APPEND PULSE_SHADER_OUTPUTS ${OUTPUTS})
     endforeach()
 
-    add_custom_command(
-        OUTPUT ${OUTPUTS}
-        ${STAGE_COMMANDS}
-        DEPENDS ${INPUTS}
-        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-        VERBATIM
-    )
-
-    set(PULSE_SHADER_OUTPUTS ${PULSE_SHADER_OUTPUTS} ${OUTPUTS} PARENT_SCOPE)
+    set(PULSE_SHADER_OUTPUTS ${PULSE_SHADER_OUTPUTS} PARENT_SCOPE)
 endfunction()
 
-pulse_add_shader_pair(PREFIX pulse_pbr       EXTRA_SOURCES openpbr_common_ps3_x.h pulse_outline_vs30.h)
-pulse_add_shader_pair(PREFIX pulse_girlsfrontline EXTRA_SOURCES openpbr_common_ps3_x.h pulse_outline_vs30.h)
-pulse_add_shader_pair(PREFIX pulse_npr        EXTRA_SOURCES npr_common_ps3_x.h pulse_outline_vs30.h)
-pulse_add_shader_pair(PREFIX pulse_umamusume EXTRA_SOURCES npr_common_ps3_x.h pulse_outline_vs30.h)
-pulse_add_shader_pair(PREFIX pulse_tooneye   EXTRA_SOURCES npr_common_ps3_x.h)
+pulse_add_shader_pair(PREFIX pulse_pbr
+    VS_EXTRA_SOURCES pulse_outline_vs30.h
+    PS_EXTRA_SOURCES openpbr_common_ps3_x.h)
+pulse_add_shader_pair(PREFIX pulse_girlsfrontline
+    VS_EXTRA_SOURCES pulse_outline_vs30.h
+    PS_EXTRA_SOURCES openpbr_common_ps3_x.h)
+pulse_add_shader_pair(PREFIX pulse_npr
+    VS_EXTRA_SOURCES pulse_outline_vs30.h
+    PS_EXTRA_SOURCES npr_common_ps3_x.h)
+pulse_add_shader_pair(PREFIX pulse_umamusume
+    VS_EXTRA_SOURCES pulse_outline_vs30.h
+    PS_EXTRA_SOURCES npr_common_ps3_x.h)
+pulse_add_shader_pair(PREFIX pulse_tooneye
+    PS_EXTRA_SOURCES npr_common_ps3_x.h)
 
 add_custom_target(pulse_shaders DEPENDS ${PULSE_SHADER_OUTPUTS})
 

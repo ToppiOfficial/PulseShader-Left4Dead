@@ -393,19 +393,10 @@ BEGIN_PBR_SHADER(PulsePBR, "Physically based rendering for models")
             // Getting skinning info
             int numBones = pShaderAPI->GetCurrentNumBones();
 
-            // Some debugging stuff
-            bool bWriteDepthToAlpha = false;
             bool bWriteWaterFogToAlpha = false;
             if (bFullyOpaque)
             {
-                // L4D2's IShaderDynamicAPI has no ShouldWriteDepthToDestAlpha.
-                // Leaving this off is the conservative choice: the depth-to-alpha
-                // combo is compiled, so it can be re-enabled once an equivalent
-                // query is identified on this branch.
-                bWriteDepthToAlpha = false;
                 bWriteWaterFogToAlpha = (fogType == MATERIAL_FOG_LINEAR_BELOW_FOG_Z);
-                AssertMsg(!(bWriteDepthToAlpha && bWriteWaterFogToAlpha),
-                        "Can't write two values to alpha at the same time.");
             }
 
             PBRSetEyePositionAndEnvMapLOD(pShaderAPI, params[info.envMap]);
@@ -446,7 +437,6 @@ BEGIN_PBR_SHADER(PulsePBR, "Physically based rendering for models")
             DECLARE_DYNAMIC_VERTEX_SHADER(pulse_pbr_vs30);
             SET_DYNAMIC_VERTEX_SHADER_COMBO(DOWATERFOG, fogIndex);
             SET_DYNAMIC_VERTEX_SHADER_COMBO(SKINNING, numBones > 0);
-            SET_DYNAMIC_VERTEX_SHADER_COMBO(LIGHTING_PREVIEW, pShaderAPI->GetIntRenderingParameter(INT_RENDERPARM_ENABLE_FIXED_LIGHTING) != 0);
             SET_DYNAMIC_VERTEX_SHADER_COMBO(COMPRESSED_VERTS, (int)vertexCompression);
             SET_DYNAMIC_VERTEX_SHADER_COMBO(NUM_LIGHTS, lightState.m_nNumLights);
             SET_DYNAMIC_VERTEX_SHADER(pulse_pbr_vs30);
@@ -457,7 +447,6 @@ BEGIN_PBR_SHADER(PulsePBR, "Physically based rendering for models")
             // the shader skips the others.
             SET_DYNAMIC_PIXEL_SHADER_COMBO(NUM_LIGHTS, bHasFlashlight ? 0 : lightState.m_nNumLights);
             SET_DYNAMIC_PIXEL_SHADER_COMBO(WRITEWATERFOGTODESTALPHA, bWriteWaterFogToAlpha);
-            SET_DYNAMIC_PIXEL_SHADER_COMBO(WRITE_DEPTH_TO_DESTALPHA, bWriteDepthToAlpha);
             SET_DYNAMIC_PIXEL_SHADER_COMBO(PIXELFOGTYPE, pShaderAPI->GetPixelFogCombo());
             SET_DYNAMIC_PIXEL_SHADER_COMBO(FLASHLIGHTSHADOWS, bFlashlightShadows);
             SET_DYNAMIC_PIXEL_SHADER(pulse_pbr_ps30);

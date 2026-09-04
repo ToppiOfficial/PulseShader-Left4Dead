@@ -1,5 +1,7 @@
 name: Dev release
 
+# Manual only. Overwrites the single rolling "dev" release with the current
+# commit's build; the release body is that commit's message.
 on:
   workflow_dispatch:
 
@@ -21,14 +23,13 @@ jobs:
       - name: Package
         run: Compress-Archive -Path dist\* -DestinationPath PulseShader-dev.zip
 
-      - name: Create prerelease
+      - name: Publish dev release
         env:
           GH_TOKEN: ${{ github.token }}
           COMMIT_SHA: ${{ github.sha }}
-          RUN_NUMBER: ${{ github.run_number }}
-          RUN_ATTEMPT: ${{ github.run_attempt }}
         run: |
           $shortSha = $env:COMMIT_SHA.Substring(0, 7)
-          $version = (Get-Content VERSION -Raw).Trim()
-          $tag = "v$version.dev.$env:RUN_NUMBER.$env:RUN_ATTEMPT"
-          gh release create $tag PulseShader-dev.zip --target $env:COMMIT_SHA --title "Development build $shortSha" --notes "Commit: $env:COMMIT_SHA" --prerelease --latest=false
+          git log -1 --pretty=%B | Out-File notes.txt -Encoding utf8
+          # replace the old dev release and its tag, so "dev" is always latest
+          gh release delete dev --yes --cleanup-tag 2>$null
+          gh release create dev PulseShader-dev.zip --target $env:COMMIT_SHA --title "Dev build ($shortSha)" --notes-file notes.txt --prerelease --latest=false
