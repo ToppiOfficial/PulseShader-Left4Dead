@@ -21,15 +21,19 @@ jobs:
         shell: cmd
 
       - name: Package
-        run: Compress-Archive -Path dist\* -DestinationPath PulseShader-dev.zip
+        run: |
+          $version = (Get-Content VERSION -Raw).Trim()
+          (Get-Content .github\README_INSTALL.txt -Raw).Replace('{{VERSION}}', "v$version (dev build)") | Out-File README.txt -Encoding utf8
+          Compress-Archive -Path dist\*, README.txt -DestinationPath "PulseShader-$version-dev.zip"
 
       - name: Publish dev release
         env:
           GH_TOKEN: ${{ github.token }}
           COMMIT_SHA: ${{ github.sha }}
         run: |
+          $version = (Get-Content VERSION -Raw).Trim()
           $shortSha = $env:COMMIT_SHA.Substring(0, 7)
           git log -1 --pretty=%B | Out-File notes.txt -Encoding utf8
           # replace the old dev release and its tag, so "dev" is always latest
           gh release delete dev --yes --cleanup-tag 2>$null
-          gh release create dev PulseShader-dev.zip --target $env:COMMIT_SHA --title "Dev build ($shortSha)" --notes-file notes.txt --prerelease --latest=false
+          gh release create dev "PulseShader-$version-dev.zip" --target $env:COMMIT_SHA --title "Dev build ($shortSha)" --notes-file notes.txt --prerelease --latest=false

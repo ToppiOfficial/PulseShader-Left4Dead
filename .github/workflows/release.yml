@@ -19,12 +19,16 @@ jobs:
         shell: cmd
 
       - name: Package
-        run: Compress-Archive -Path dist\* -DestinationPath PulseShader.zip
+        run: |
+          $version = (Get-Content VERSION -Raw).Trim()
+          (Get-Content .github\README_INSTALL.txt -Raw).Replace('{{VERSION}}', "v$version") | Out-File README.txt -Encoding utf8
+          Compress-Archive -Path dist\*, README.txt -DestinationPath "PulseShader-$version.zip"
 
       - name: Create draft release
         env:
           GH_TOKEN: ${{ github.token }}
           COMMIT_SHA: ${{ github.sha }}
         run: |
-          $tag = "v$((Get-Content VERSION -Raw).Trim())"
-          gh release create $tag PulseShader.zip --target $env:COMMIT_SHA --title $tag --notes "" --draft
+          $version = (Get-Content VERSION -Raw).Trim()
+          $tag = "v$version"
+          gh release create $tag "PulseShader-$version.zip" --target $env:COMMIT_SHA --title $tag --notes "" --draft
