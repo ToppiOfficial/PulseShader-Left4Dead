@@ -23,4 +23,4 @@ lineage, which is what the shaders were written and tested against.
 The two disagree about constant registers, and the engine follows Alien Swarm,
 not these. `common_ps_fxc.h` here leaves c32 free; Alien Swarm reserves it for
 `cScreenSize` on ps_3_0. **When claiming a new constant register, check the
-Alien Swarm copy, not this one.** See `docs/STATE.md`.
+Alien Swarm copy, not this one.**
