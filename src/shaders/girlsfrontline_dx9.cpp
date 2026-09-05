@@ -359,11 +359,10 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
         bool bHasDetailTexture = (info.detailTexture != -1) && params[info.detailTexture]->IsTexture();
         bool bHasLightWarpTexture = (info.lightWarpTexture != -1) && params[info.lightWarpTexture]->IsTexture();
         bool bStocking = IsStockingMaterial(params, info);
-        // The inverted hull draws behind the model, so a $translucent or
-        // $alphatest surface blends the outline through itself instead of
-        // hiding it. No sort order fixes that, so the pass is locked off.
-        // An eyelid hull would outline the lashes against the hair they draw over.
-        bool bEyelid = params[info.eyelid]->GetIntValue() != 0;
+        // Translucent surfaces expose the inverted hull, and an eyelid hull
+        // outlines lashes against hair. The flashlight only lights the eyelid's
+        // main pass.
+        bool bEyelid = !bHasFlashlight && params[info.eyelid]->GetIntValue() != 0;
         bool bHasRampTexture = params[info.rampTexture]->IsTexture();
         bool bFace = IsFaceMaterial(params, info) && params[info.faceMapTexture]->IsTexture();
         bool bRenderBackface = params[info.renderBackface]->GetIntValue() != 0
