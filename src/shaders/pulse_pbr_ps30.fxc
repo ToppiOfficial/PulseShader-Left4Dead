@@ -12,6 +12,7 @@
 // STATIC: "SPECULAR"                   "0..1"
 
 // DYNAMIC: "WRITEWATERFOGTODESTALPHA"  "0..1"
+// DYNAMIC: "WRITE_DEPTH_TO_DESTALPHA"  "0..1"
 // DYNAMIC: "PIXELFOGTYPE"              "0..1"
 // DYNAMIC: "NUM_LIGHTS"                "0..4"
 // DYNAMIC: "FLASHLIGHTSHADOWS"         "0..1"
@@ -252,5 +253,7 @@ float alpha = albedo.a * g_DiffuseModulation.a;
     // arrive folded into the modulation constant, matching stock Source shaders.
     combinedLighting *= g_DiffuseModulation.rgb;
 
-    return FinalOutput(float4(combinedLighting, alpha), fogFactor, PIXELFOGTYPE, TONEMAP_SCALE_LINEAR, false, i.projPos.z);
+    bool writeDepth = (WRITE_DEPTH_TO_DESTALPHA != 0) && (WRITEWATERFOGTODESTALPHA == 0);
+    return FinalOutput(float4(combinedLighting, alpha), fogFactor, PIXELFOGTYPE,
+        TONEMAP_SCALE_LINEAR, writeDepth, i.projPos.z);
 }

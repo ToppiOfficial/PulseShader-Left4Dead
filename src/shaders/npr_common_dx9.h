@@ -47,7 +47,7 @@ protected:
 			pShaderShadow->BlendFunc(SHADER_BLEND_ONE, SHADER_BLEND_ONE);
 		else if (translucent)
 			pShaderShadow->BlendFunc(SHADER_BLEND_SRC_ALPHA, SHADER_BLEND_ONE_MINUS_SRC_ALPHA);
-		pShaderShadow->EnableAlphaWrites(!flashlight && !translucent);
+		pShaderShadow->EnableAlphaWrites(!flashlight && !translucent && !alphaTest);
 	}
 
 	void NPRSetRenderBackface(IShaderDynamicAPI *pShaderAPI, bool renderBackface)

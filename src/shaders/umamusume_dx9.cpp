@@ -200,6 +200,7 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 			info.detailTexture);
 		bool translucent = blendType == BT_BLEND || blendType == BT_BLENDADD;
 		bool alphaTest = IS_FLAG_SET(MATERIAL_VAR_ALPHATEST);
+		bool fullyOpaque = !translucent && !alphaTest;
 		// An eyelid hull would outline the lashes against the hair they draw over, so
 		// $eyelid suppresses the pass rather than relying on the width being left at 0.
 		bool outlineEnabled = !flashlight && !eyelid
@@ -376,8 +377,10 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 				DECLARE_DYNAMIC_PIXEL_SHADER(pulse_umamusume_ps30);
 				SET_DYNAMIC_PIXEL_SHADER_COMBO(NUM_LIGHTS, numLights);
 				SET_DYNAMIC_PIXEL_SHADER_COMBO(WRITEWATERFOGTODESTALPHA,
-					!flashlight && fogType == MATERIAL_FOG_LINEAR_BELOW_FOG_Z);
-				SET_DYNAMIC_PIXEL_SHADER_COMBO(WRITE_DEPTH_TO_DESTALPHA, false);
+					!flashlight && fullyOpaque && fogType == MATERIAL_FOG_LINEAR_BELOW_FOG_Z);
+				SET_DYNAMIC_PIXEL_SHADER_COMBO(WRITE_DEPTH_TO_DESTALPHA,
+					!flashlight && fullyOpaque
+						&& pShaderAPI->GetIntRenderingParameter(INT_RENDERPARM_WRITE_DEPTH_TO_DESTALPHA));
 				SET_DYNAMIC_PIXEL_SHADER_COMBO(PIXELFOGTYPE, pShaderAPI->GetPixelFogCombo());
 				SET_DYNAMIC_PIXEL_SHADER_COMBO(FLASHLIGHTSHADOWS, flashlightShadows);
 				SET_DYNAMIC_PIXEL_SHADER(pulse_umamusume_ps30);

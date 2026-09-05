@@ -16,6 +16,7 @@
 // STATIC: "SPECULAR"                   "0..1"
 
 // DYNAMIC: "WRITEWATERFOGTODESTALPHA"  "0..1"
+// DYNAMIC: "WRITE_DEPTH_TO_DESTALPHA"  "0..1"
 // DYNAMIC: "PIXELFOGTYPE"              "0..1"
 // DYNAMIC: "NUM_LIGHTS"                "0..4"
 // DYNAMIC: "FLASHLIGHTSHADOWS"         "0..1"
@@ -242,6 +243,12 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 
     float4 albedo = tex2D(BaseTextureSampler, correctedTexCoord);
 
+    float fogFactor = 0.0f;
+#if !FLASHLIGHT
+    fogFactor = CalcPixelFogFactor(PIXELFOGTYPE, g_FogParams, g_EyePos.z,
+        i.worldPos.z, i.projPos.z);
+#endif
+
 #if OUTLINE
     // Only the back faces of the expanded hull are the outline; the front ones
     // sit inside the model and would hide it.
@@ -251,8 +258,15 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
     // rather than sitting at one flat value.
     float3 outlineBase = lerp(outlineTint, albedo.rgb * outlineTint, g_OutlineColor.a);
     float3 outlineLight = saturate(ambientLookup(normalize(i.worldNormal), EnvAmbientCube));
-    return FinalOutput(float4(outlineBase * outlineLight, albedo.a), 0.0,
-                       PIXELFOGTYPE, TONEMAP_SCALE_LINEAR, false, i.projPos.z);
+    float outlineAlpha = albedo.a;
+#if WRITEWATERFOGTODESTALPHA && (PIXELFOGTYPE == PIXEL_FOG_TYPE_HEIGHT)
+    outlineAlpha = fogFactor;
+#endif
+    bool writeOutlineDepth = (WRITE_DEPTH_TO_DESTALPHA != 0)
+        && (WRITEWATERFOGTODESTALPHA == 0);
+    return FinalOutput(float4(outlineBase * outlineLight, outlineAlpha), fogFactor,
+                       PIXELFOGTYPE, TONEMAP_SCALE_LINEAR,
+                       writeOutlineDepth, i.projPos.z);
 #endif
 
     normal = g_OpenPBRParms.w != 0.0 ? normal * faceSign : normal;
@@ -397,11 +411,6 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
     }
     // End flashlight
 
-float fogFactor = 0.0f;
-#if !FLASHLIGHT
-fogFactor = CalcPixelFogFactor(PIXELFOGTYPE, g_FogParams, g_EyePos.z, i.worldPos.z, i.projPos.z);
-#endif
-
 float alpha = albedo.a * g_EyelidBlend.x * g_DiffuseModulation.a;
 #if !FLASHLIGHT
 #if WRITEWATERFOGTODESTALPHA && (PIXELFOGTYPE == PIXEL_FOG_TYPE_HEIGHT)
@@ -425,5 +434,7 @@ float alpha = albedo.a * g_EyelidBlend.x * g_DiffuseModulation.a;
     // arrive folded into the modulation constant, matching stock Source shaders.
     combinedLighting *= g_DiffuseModulation.rgb;
 
-    return FinalOutput(float4(combinedLighting, alpha), fogFactor, PIXELFOGTYPE, TONEMAP_SCALE_LINEAR, false, i.projPos.z);
+    bool writeDepth = (WRITE_DEPTH_TO_DESTALPHA != 0) && (WRITEWATERFOGTODESTALPHA == 0);
+    return FinalOutput(float4(combinedLighting, alpha), fogFactor, PIXELFOGTYPE,
+        TONEMAP_SCALE_LINEAR, writeDepth, i.projPos.z);
 }

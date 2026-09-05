@@ -547,10 +547,8 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
             // Setting up fog
             DefaultFog(); // I think this is correct
 
-            // HACK HACK HACK - enable alpha writes all the time so that we have them for underwater stuff
-            // The hair-shadow passes masked writes off above; underwater alpha is
-            // the main pass's job, and the marker has its colour writes masked.
-            pShaderShadow->EnableAlphaWrites(bFullyOpaque && !bHairShadow);
+            pShaderShadow->EnableAlphaWrites(bFullyOpaque && !bHasFlashlight
+                && !bHairShadow && !bEyelidPass);
             // Per-instance lighting is baked into a command buffer at snapshot
             // time on this branch and replayed by the engine per instance - the
             // PI_ helpers write into that buffer, so they are invalid outside
@@ -767,6 +765,9 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
             // the shader skips the others.
             SET_DYNAMIC_PIXEL_SHADER_COMBO(NUM_LIGHTS, bHasFlashlight ? 0 : lightState.m_nNumLights);
             SET_DYNAMIC_PIXEL_SHADER_COMBO(WRITEWATERFOGTODESTALPHA, bWriteWaterFogToAlpha);
+            SET_DYNAMIC_PIXEL_SHADER_COMBO(WRITE_DEPTH_TO_DESTALPHA,
+                bFullyOpaque && !bHasFlashlight && !bHairShadow && !bEyelidPass
+                    && pShaderAPI->GetIntRenderingParameter(INT_RENDERPARM_WRITE_DEPTH_TO_DESTALPHA));
             SET_DYNAMIC_PIXEL_SHADER_COMBO(PIXELFOGTYPE, pShaderAPI->GetPixelFogCombo());
             SET_DYNAMIC_PIXEL_SHADER_COMBO(FLASHLIGHTSHADOWS, bFlashlightShadows);
             SET_DYNAMIC_PIXEL_SHADER(pulse_girlsfrontline_ps30);
