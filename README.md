@@ -1,7 +1,6 @@
 # PulseShader
 
 <p align="center">
-  <img alt="Status: Beta" src="https://img.shields.io/badge/STATUS-BETA-F36D33?style=for-the-badge">
   <img alt="Source Engine branch: L4D2" src="https://img.shields.io/badge/SOURCE_ENGINE_BRANCH-L4D2-0078D4?style=for-the-badge">
   <img alt="DirectX: 9" src="https://img.shields.io/badge/DIRECTX-9-107C10?style=for-the-badge">
 </p>
