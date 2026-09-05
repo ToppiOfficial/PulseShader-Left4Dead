@@ -1,51 +1,59 @@
-"PulseUmamusume" // Models only; requires ps_3_0 and authored packed textures.
+"PulseUmamusume"                                                            // Models only; requires ps_3_0 and authored packed textures.
 {
-	$basetexture "models/your_model/base_color" // sRGB lit base color and fallback for $baseshadetexture.
-	$frame "0" // Animation frame for $basetexture.
-	$basetexturetransform "center .5 .5 scale 1 1 rotate 0 translate 0 0" // Base and packed-map UV transform.
-	$color "[1 1 1]" // Primary material color multiplier.
-	$color2 "[1 1 1]" // Additional material color multiplier.
-	$srgbtint "[1 1 1]" // Additional tint when sRGB-correct blending is active.
-	$alpha "1" // Material opacity; values below 1 use blending.
-	$alphatest "0" // Uses the selected opacity channel as a cutout when enabled.
-	$alphatestreference "0.5" // Cutout threshold; requires $alphatest 1.
-	$translucent "0" // Enables standard alpha blending.
-	$additive "0" // Selects translucency, but this shader still uses standard alpha blending.
-	$nocull "0" // Draws both sides when enabled.
-	$renderbackface "0" // Draws backfaces with reversed shading normals; $nocull wins.
+	$basetexture "models/your_model/base_color"                                // sRGB lit base color and fallback for $baseshadetexture.
+	$frame "0"                                                                 // Animation frame for $basetexture.
+	$basetexturetransform "center .5 .5 scale 1 1 rotate 0 translate 0 0"      // Base and packed-map UV transform.
 
-	$baseshadetexture "models/your_model/base_shade" // sRGB authored shadow-side base color.
-	$aohatexture "models/your_model/aoha" // Linear packed map: R AO, G highlight, B opacity.
-	$rsrfltexture "models/your_model/rsrfl" // Linear map: R reflection, G specular/envmap, B rim/specular.
-	$envmap "env_cubemap" // Cubemap masked by RSRFL green; disabled by $face and flashlight passes.
-	$envmaptint "[1 1 1]" // Cubemap reflection tint; requires $envmap.
-	$reflectiontexture "models/your_model/reflection" // Linear packed map: R additive, G multiplicative.
-	$reflectionstrength "1" // Reflection strength; requires $reflectiontexture and RSRFL red.
-	$reflectionaddcolor "[1 1 1]" // Additive reflection tint; requires $reflectiontexture.
-	$reflectionmultiplycolor "[1 1 1]" // Multiplicative reflection tint; requires $reflectiontexture.
-	$useaohaalpha "1" // Uses AOHA blue for opacity; $face always uses base texture alpha.
-	$highlightcolor "[1 1 1]" // Highlight tint masked by AOHA green.
-	$highlightbrightness "3" // Highlight intensity masked by AOHA green.
-	$specularsmoothness "1.03" // Width of the specular transition edge.
-	$specularbrightness "30" // Specular intensity masked by RSRFL green.
-	$specsize "5" // Specular highlight size.
-	$fallbackbrightness "0.001" // Minimum brightness when no direct lights are present.
-	$rimlightwidth "0" // Rim width masked by RSRFL red; 0 disables the rim.
-	$rimlightbrightness "2" // Rim intensity; requires $rimlightwidth above 0.
-	$outlinewidth "0" // Outline width in model units; 0 disables the outline pass.
-	$outlineangle "0" // Minimum expansion angle in degrees; 0 disables angle fading.
-	$outlinecolor "[0 0 0]" // Outline color.
-	$outlinebaseblend "0" // Base texture contribution to the outline.
-	$detail "models/your_model/detail" // Detail texture combined with the base color.
-	$detailframe "0" // Animation frame for $detail; requires $detail.
-	$detailscale "4" // Detail UV scale; requires $detail.
-	$detailblendmode "0" // TextureCombine mode; 0 is Mod2X and requires $detail.
-	$detailblendfactor "1" // Detail blend strength; requires $detail.
-	$detailtint "[1 1 1]" // Detail color multiplier; requires $detail.
-	$detailtexturetransform "center .5 .5 scale 1 1 rotate 0 translate 0 0" // Detail UV transform.
-	$aostrength "1" // Strength of lit AO from AOHA red.
-	$face "0" // Enables face shading; disables envmap reflection.
-	$facecheekspread "1" // Widens the face cheek-light angle; requires $face 1.
-	$faceyaw "270" // Reference-pose facing away from +X; 270 is -Y, 0 is studiomdl convention.
-	$eyelid "0" // Pulls lashes or brows through front hair and disables their outline.
+	$color "[1 1 1]"                                                           // Primary material color multiplier.
+	$color2 "[1 1 1]"                                                          // Additional material color multiplier.
+	$srgbtint "[1 1 1]"                                                        // Additional tint when sRGB-correct blending is active.
+	$alpha "1"                                                                 // Material opacity; values below 1 use blending.
+
+	$alphatest "0"                                                             // Uses the selected opacity channel as a cutout when enabled.
+	$alphatestreference "0.5"                                                  // Cutout threshold; requires $alphatest 1.
+	$translucent "0"                                                           // Enables standard alpha blending.
+	$additive "0"                                                              // Selects translucency, but this shader still uses standard alpha blending.
+	$nocull "0"                                                                // Draws both sides when enabled.
+	$renderbackface "0"                                                        // Draws backfaces with reversed shading normals; $nocull wins.
+
+	$baseshadetexture "models/your_model/base_shade"                           // sRGB authored shadow-side base color.
+	$aohatexture "models/your_model/aoha"                                      // Linear packed map: R AO, G highlight, B opacity.
+	$rsrfltexture "models/your_model/rsrfl"                                    // Linear map: R reflection, G specular/envmap, B rim/specular.
+
+	$envmap "env_cubemap"                                                      // Cubemap masked by RSRFL green; disabled by $face and flashlight passes.
+	$envmaptint "[1 1 1]"                                                      // Cubemap reflection tint; requires $envmap.
+	$reflectiontexture "models/your_model/reflection"                          // Linear packed map: R additive, G multiplicative.
+	$reflectionstrength "1"                                                    // Reflection strength; requires $reflectiontexture and RSRFL red.
+	$reflectionaddcolor "[1 1 1]"                                              // Additive reflection tint; requires $reflectiontexture.
+	$reflectionmultiplycolor "[1 1 1]"                                         // Multiplicative reflection tint; requires $reflectiontexture.
+	$useaohaalpha "1"                                                          // Uses AOHA blue for opacity; $face always uses base texture alpha.
+
+	$highlightcolor "[1 1 1]"                                                  // Highlight tint masked by AOHA green.
+	$highlightbrightness "3"                                                   // Highlight intensity masked by AOHA green.
+	$specularsmoothness "1.03"                                                 // Width of the specular transition edge.
+	$specularbrightness "30"                                                   // Specular intensity masked by RSRFL green.
+	$specsize "5"                                                              // Specular highlight size.
+	$fallbackbrightness "0.001"                                                // Minimum brightness when no direct lights are present.
+
+	$rimlightwidth "0"                                                         // Rim width masked by RSRFL red; 0 disables the rim.
+	$rimlightbrightness "2"                                                    // Rim intensity; requires $rimlightwidth above 0.
+
+	$outlinewidth "0"                                                          // Outline width in model units; 0 disables the outline pass.
+	$outlineangle "0"                                                          // Minimum expansion angle in degrees; 0 disables angle fading.
+	$outlinecolor "[0 0 0]"                                                    // Outline color.
+	$outlinebaseblend "0"                                                      // Base texture contribution to the outline.
+
+	$detail "models/your_model/detail"                                         // Detail texture combined with the base color.
+	$detailframe "0"                                                           // Animation frame for $detail; requires $detail.
+	$detailscale "4"                                                           // Detail UV scale; requires $detail.
+	$detailblendmode "0"                                                       // TextureCombine mode; 0 is Mod2X and requires $detail.
+	$detailblendfactor "1"                                                     // Detail blend strength; requires $detail.
+	$detailtint "[1 1 1]"                                                      // Detail color multiplier; requires $detail.
+	$detailtexturetransform "center .5 .5 scale 1 1 rotate 0 translate 0 0"    // Detail UV transform.
+
+	$aostrength "1"                                                            // Strength of lit AO from AOHA red.
+	$face "0"                                                                  // Enables face shading; disables envmap reflection.
+	$facecheekspread "1"                                                       // Widens the face cheek-light angle; requires $face 1.
+	$faceyaw "270"                                                             // Reference-pose facing away from +X; 270 is -Y, 0 is studiomdl convention.
+	$eyelid "0"                                                                // Pulls lashes or brows through front hair and disables their outline.
 }

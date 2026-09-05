@@ -1,36 +1,40 @@
-"PulseToonEye" // Eyeball models only; requires ps_3_0 and studiomdl eye data.
+"PulseToonEye"                                                              // Eyeball models only; requires ps_3_0 and studiomdl eye data.
 {
-	$basetexture "models/your_model/eye" // sRGB eye color; alpha separates iris 0 from eyewhite 1.
-	$frame "0" // Animation frame for $basetexture.
-	$color "[1 1 1]" // Primary whole-eye color multiplier.
-	$color2 "[1 1 1]" // Additional whole-eye color multiplier.
-	$srgbtint "[1 1 1]" // Additional tint when sRGB-correct blending is active.
-	$alpha "1" // Main-pass output alpha; this does not enable translucency.
-	$nocull "0" // Draws both sides when enabled.
+	$basetexture "models/your_model/eye"                                       // sRGB eye color; alpha separates iris 0 from eyewhite 1.
+	$frame "0"                                                                 // Animation frame for $basetexture.
 
-	$baseshadetexture "models/your_model/eye_shade" // sRGB shadow color; falls back to $basetexture.
-	$speculartexture "models/your_model/eye_specular" // sRGB eyeball-UV shine color and mask.
-	$lightwarptexture "models/your_model/lightwarp" // Linear 1D ramp for diffuse falloff.
-	$envmap "env_cubemap" // Iris cubemap reflection; disabled during flashlight passes.
-	$envmaptint "[1 1 1]" // Iris reflection tint; requires $envmap.
-	$envmapscale "1" // Unbounded linear reflection brightness; requires $envmap.
-	$iriscolor "[1 1 1]" // Tints the low-base-alpha iris region.
-	$eyewhitecolor "[1 1 1]" // Tints the high-base-alpha eyewhite region.
-	$irisscale "1" // Iris and shine UV scale; values must be above 0.
-	$irismaskreference "0.5" // Base-alpha boundary between iris and eyewhite.
-	$irismasksoftness "0" // Extra boundary width; 0 keeps the anti-aliased edge crisp.
-	$selfillum "0" // Enables unlit eye color from $selfillummask or the iris fallback.
-	$selfillummask "models/your_model/eye_selfillum" // Linear red-channel mask; requires $selfillum 1.
-	$selfillumtint "[1 1 1]" // Emissive color multiplier; requires $selfillum 1.
-	$eyelid "0" // Draws the iris over front hair; unavailable during flashlight passes.
-	$eyelidblend "1" // Overlay opacity; incompatible with PulseUmamusume hair materials.
-	$specularbrightness "1" // Additive shine intensity; requires $speculartexture.
-	$specularsaturation "1" // Shine saturation; 0 is greyscale and values above 1 boost color.
-	$fallbackbrightness "0" // Ambient floor when no local lights are present.
+	$color "[1 1 1]"                                                           // Primary whole-eye color multiplier.
+	$color2 "[1 1 1]"                                                          // Additional whole-eye color multiplier.
+	$srgbtint "[1 1 1]"                                                        // Additional tint when sRGB-correct blending is active.
+	$alpha "1"                                                                 // Main-pass output alpha; this does not enable translucency.
+	$nocull "0"                                                                // Draws both sides when enabled.
 
-	$eyeorigin "[0 0 0]" // Engine-written eyeball origin; do not author this value.
-	$irisu "[0 1 0 0]" // Engine-written iris U projection plane; do not author this value.
-	$irisv "[0 0 1 0]" // Engine-written iris V projection plane; do not author this value.
-	$dilation "0" // Compatibility parameter; currently ignored.
-	$eyeballradius "0" // Compatibility parameter; currently ignored.
+	$baseshadetexture "models/your_model/eye_shade"                            // sRGB shadow color; falls back to $basetexture.
+	$speculartexture "models/your_model/eye_specular"                          // sRGB eyeball-UV shine color and mask.
+	$lightwarptexture "models/your_model/lightwarp"                            // Linear 1D ramp for diffuse falloff.
+
+	$envmap "env_cubemap"                                                      // Iris cubemap reflection; disabled during flashlight passes.
+	$envmaptint "[1 1 1]"                                                      // Iris reflection tint; requires $envmap.
+	$envmapscale "1"                                                           // Unbounded linear reflection brightness; requires $envmap.
+	$iriscolor "[1 1 1]"                                                       // Tints the low-base-alpha iris region.
+	$eyewhitecolor "[1 1 1]"                                                   // Tints the high-base-alpha eyewhite region.
+	$irisscale "1"                                                             // Iris and shine UV scale; values must be above 0.
+	$irismaskreference "0.5"                                                   // Base-alpha boundary between iris and eyewhite.
+	$irismasksoftness "0"                                                      // Extra boundary width; 0 keeps the anti-aliased edge crisp.
+
+	$selfillum "0"                                                             // Enables unlit eye color from $selfillummask or the iris fallback.
+	$selfillummask "models/your_model/eye_selfillum"                           // Linear red-channel mask; requires $selfillum 1.
+	$selfillumtint "[1 1 1]"                                                   // Emissive color multiplier; requires $selfillum 1.
+
+	$eyelid "0"                                                                // Draws the iris over front hair; unavailable during flashlight passes.
+	$eyelidblend "1"                                                           // Overlay opacity; incompatible with PulseUmamusume hair materials.
+	$specularbrightness "1"                                                    // Additive shine intensity; requires $speculartexture.
+	$specularsaturation "1"                                                    // Shine saturation; 0 is greyscale and values above 1 boost color.
+	$fallbackbrightness "0"                                                    // Ambient floor when no local lights are present.
+
+	$eyeorigin "[0 0 0]"                                                       // Engine-written eyeball origin; do not author this value.
+	$irisu "[0 1 0 0]"                                                         // Engine-written iris U projection plane; do not author this value.
+	$irisv "[0 0 1 0]"                                                         // Engine-written iris V projection plane; do not author this value.
+	$dilation "0"                                                              // Compatibility parameter; currently ignored.
+	$eyeballradius "0"                                                         // Compatibility parameter; currently ignored.
 }
