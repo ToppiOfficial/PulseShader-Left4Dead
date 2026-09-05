@@ -30,7 +30,7 @@ Our own work
 Written for this project and not derived from Valve or thexa4 code:
 
   src/pulse_shaderdll.cpp        engine-facing shader DLL entry point
-  src/pulse_shaderlib_cvar.cpp   ConVar init that does not touch L4D2's ICvar
+  src/shaders/pulse_shader_convars.cpp   shared shader ConVar definitions
   src/basevsshader_impl.cpp      the three CBaseVSShader methods we need
                                  (bodies are Valve's, from the Alien Swarm SDK)
   src/log.cpp, src/log.h         load-time tracing
