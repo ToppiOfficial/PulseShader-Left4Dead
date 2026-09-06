@@ -20,6 +20,9 @@ struct NPR_Vars_t
 	int celShadeSteps;
 	int specularMaskTexture;
 	int emissionTexture;
+	int emissionTextureFrame;
+	int emissionTint;
+	int emissionStrength;
 	int alphaTestReference;
 	int envMap;
 	int envMapMask;
@@ -27,6 +30,7 @@ struct NPR_Vars_t
 	int envMapAlbedoTint;
 	int envMapAlbedoBoost;
 	int reflectionTexture;
+	int reflectionTextureFrame;
 	int reflectionStrength;
 	int reflectionAddColor;
 	int reflectionMultiplyColor;
@@ -58,6 +62,9 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 		SHADER_PARAM(CELSHADESTEPS, SHADER_PARAM_TYPE_INTEGER, "0", "Intermediate cel-shading bands, clamped from 0 to 4");
 		SHADER_PARAM(SPECULARMASKTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Packed highlight mask: specular in red, rim light in green");
 		SHADER_PARAM(EMISSIONTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Emission texture");
+		SHADER_PARAM(EMISSIONTEXTUREFRAME, SHADER_PARAM_TYPE_INTEGER, "0", "Frame number for $emissiontexture");
+		SHADER_PARAM(EMISSIONTINT, SHADER_PARAM_TYPE_COLOR, "[1 1 1]", "Emission texture tint");
+		SHADER_PARAM(EMISSIONSTRENGTH, SHADER_PARAM_TYPE_FLOAT, "1", "Emission strength");
 		SHADER_PARAM(ALPHATESTREFERENCE, SHADER_PARAM_TYPE_FLOAT, "0", "Cutout threshold");
 		SHADER_PARAM(ENVMAP, SHADER_PARAM_TYPE_ENVMAP, "", "Cubemap reflection; overrides $reflectiontexture");
 		SHADER_PARAM(ENVMAPMASK, SHADER_PARAM_TYPE_TEXTURE, "", "Grayscale envmap mask; white when omitted");
@@ -65,6 +72,7 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 		SHADER_PARAM(ENVMAPALBEDOTINT, SHADER_PARAM_TYPE_BOOL, "0", "Tint the envmap by the base color instead of $envmaptint");
 		SHADER_PARAM(ENVMAPALBEDOBOOST, SHADER_PARAM_TYPE_FLOAT, "0", "Brightness added to the albedo envmap tint");
 		SHADER_PARAM(REFLECTIONTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Matcap indexed by the view-space normal: additive in red, multiplicative in green");
+		SHADER_PARAM(REFLECTIONTEXTUREFRAME, SHADER_PARAM_TYPE_INTEGER, "0", "Frame number for $reflectiontexture");
 		SHADER_PARAM(REFLECTIONSTRENGTH, SHADER_PARAM_TYPE_FLOAT, "1", "Reflection strength");
 		SHADER_PARAM(REFLECTIONADDCOLOR, SHADER_PARAM_TYPE_COLOR, "[1 1 1]", "Additive reflection tint");
 		SHADER_PARAM(REFLECTIONMULTIPLYCOLOR, SHADER_PARAM_TYPE_COLOR, "[1 1 1]", "Multiplicative reflection tint");
@@ -98,6 +106,9 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 		info.celShadeSteps = CELSHADESTEPS;
 		info.specularMaskTexture = SPECULARMASKTEXTURE;
 		info.emissionTexture = EMISSIONTEXTURE;
+		info.emissionTextureFrame = EMISSIONTEXTUREFRAME;
+		info.emissionTint = EMISSIONTINT;
+		info.emissionStrength = EMISSIONSTRENGTH;
 		info.alphaTestReference = ALPHATESTREFERENCE;
 		info.envMap = ENVMAP;
 		info.envMapMask = ENVMAPMASK;
@@ -105,6 +116,7 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 		info.envMapAlbedoTint = ENVMAPALBEDOTINT;
 		info.envMapAlbedoBoost = ENVMAPALBEDOBOOST;
 		info.reflectionTexture = REFLECTIONTEXTURE;
+		info.reflectionTextureFrame = REFLECTIONTEXTUREFRAME;
 		info.reflectionStrength = REFLECTIONSTRENGTH;
 		info.reflectionAddColor = REFLECTIONADDCOLOR;
 		info.reflectionMultiplyColor = REFLECTIONMULTIPLYCOLOR;
@@ -140,6 +152,7 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(SPECULARBRIGHTNESS, 0.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(SPECSIZE, 5.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(FALLBACKBRIGHTNESS, 0.001f);
+		SET_PARAM_FLOAT_IF_NOT_DEFINED(EMISSIONSTRENGTH, 1.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(RIMLIGHTWIDTH, 0.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(RIMLIGHTBRIGHTNESS, 2.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(OUTLINEWIDTH, 0.0f);
@@ -264,21 +277,25 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 				SET_STATIC_PIXEL_SHADER(pulse_npr_ps30);
 
 				DefaultFog();
-				NPRWriteLightingCommandBuffer();
+				NPRWriteLightingCommandBuffer(params);
 			}
 			else
 			{
 				if (hasBase) BindTexture(NPR_SAMPLER_BASE, info.baseTexture, info.baseTextureFrame);
 				else pShaderAPI->BindStandardTexture(NPR_SAMPLER_BASE, TEXTURE_WHITE);
 				if (hasSpecularMask) BindTexture(SHADER_SAMPLER1, info.specularMaskTexture, 0);
-				if (hasEmission) BindTexture(SHADER_SAMPLER2, info.emissionTexture, 0);
+				if (hasEmission)
+				{
+					BindTexture(SHADER_SAMPLER2, info.emissionTexture, info.emissionTextureFrame);
+					SetPixelShaderConstant(PSREG_CONSTANT_35, info.emissionTint, info.emissionStrength);
+				}
 				if (envmap)
 				{
 					BindTexture(SHADER_SAMPLER9, info.envMap, 0);
 					if (hasEnvMapMask) BindTexture(SHADER_SAMPLER3, info.envMapMask, 0);
 					else pShaderAPI->BindStandardTexture(SHADER_SAMPLER3, TEXTURE_WHITE);
 				}
-				if (hasReflection) BindTexture(NPR_SAMPLER_REFLECTION, info.reflectionTexture, 0);
+				if (hasReflection) BindTexture(NPR_SAMPLER_REFLECTION, info.reflectionTexture, info.reflectionTextureFrame);
 				else pShaderAPI->BindStandardTexture(NPR_SAMPLER_REFLECTION, TEXTURE_BLACK);
 				if (hasDetail) BindTexture(NPR_SAMPLER_DETAIL, info.detailTexture, info.detailFrame);
 
@@ -289,25 +306,16 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 				float reflectionAdd[4] = { 1.0f, 1.0f, 1.0f,
 					hasReflection ? params[info.reflectionStrength]->GetFloatValue() : 0.0f };
 				params[info.reflectionAddColor]->GetVecValue(reflectionAdd, 3);
-				reflectionAdd[0] = GammaToLinear(reflectionAdd[0]);
-				reflectionAdd[1] = GammaToLinear(reflectionAdd[1]);
-				reflectionAdd[2] = GammaToLinear(reflectionAdd[2]);
 				pShaderAPI->SetPixelShaderConstant(50, reflectionAdd);
 
 				float reflectionMultiply[4] = { 1.0f, 1.0f, 1.0f, 0.0f };
 				params[info.reflectionMultiplyColor]->GetVecValue(reflectionMultiply, 3);
-				reflectionMultiply[0] = GammaToLinear(reflectionMultiply[0]);
-				reflectionMultiply[1] = GammaToLinear(reflectionMultiply[1]);
-				reflectionMultiply[2] = GammaToLinear(reflectionMultiply[2]);
 				pShaderAPI->SetPixelShaderConstant(51, reflectionMultiply);
 
 				if (envmap)
 				{
 					float envTint[4] = { 1.0f, 1.0f, 1.0f, 0.0f };
 					params[info.envMapTint]->GetVecValue(envTint, 3);
-					envTint[0] = GammaToLinear(envTint[0]);
-					envTint[1] = GammaToLinear(envTint[1]);
-					envTint[2] = GammaToLinear(envTint[2]);
 					if (params[info.envMapAlbedoTint]->GetIntValue() != 0)
 						envTint[3] = 1.0f + MAX(params[info.envMapAlbedoBoost]->GetFloatValue(), 0.0f);
 					pShaderAPI->SetPixelShaderConstant(52, envTint);
@@ -346,6 +354,7 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 					0.0f, 0.0f, 0.0f
 				};
 				pShaderAPI->SetPixelShaderConstant(54, celShadeParams);
+				SetPixelShaderConstant(PSREG_CONSTANT_37, COLOR2);
 
 				float eyePosition[4];
 				pShaderAPI->GetWorldSpaceCameraPosition(eyePosition);

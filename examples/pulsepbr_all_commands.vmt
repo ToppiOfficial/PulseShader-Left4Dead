@@ -20,6 +20,7 @@
 
 	$envmap "env_cubemap"                                                      // Cubemap reflection; defaults to env_cubemap when omitted.
 	$mraotexture "models/your_model/mrao"                                      // Linear map: R metalness, G roughness, B ambient occlusion.
+	$mraotextureframe "0"                                                      // Animation frame for $mraotexture.
 	$metalness "0"                                                             // Flat fallback; used only when $mraotexture is absent.
 	$roughness "1"                                                             // Flat fallback; used only when $mraotexture is absent.
 	$ambientocclusion "1"                                                      // Flat fallback; used only when $mraotexture is absent.
@@ -29,7 +30,11 @@
 	$basediffuseroughness "0"                                                  // Diffuse Oren-Nayar roughness; 0 uses Lambert.
 
 	$emissiontexture "models/your_model/emission"                              // sRGB emission color map.
+	$emissiontextureframe "0"                                                  // Animation frame for $emissiontexture.
+	$emissiontint "[1 1 1]"                                                    // Color multiplier for $emissiontexture.
+	$emissionstrength "1"                                                      // Emission intensity; values above 1 boost it.
 	$bumpmap "models/your_model/normal"                                        // Linear DirectX normal map; defaults to dev/flat_normal.
+	$bumpmapframe "0"                                                          // Animation frame for $bumpmap.
 	$speculartexture "models/your_model/specular_f0"                           // sRGB RGB specular F0 map.
 
 	$detail "models/your_model/detail"                                         // Detail texture combined with the base color.

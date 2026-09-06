@@ -21,12 +21,16 @@
 	$celshadesteps "0"                                                         // Intermediate shadow-to-light bands from 0 to 4; 0 keeps the hard two-tone split.
 	$specularmasktexture "models/your_model/highlight_mask"                    // Linear packed mask: R specular, G rim; B/A unused.
 	$emissiontexture "models/your_model/emission"                              // sRGB emission added after lighting.
+	$emissiontextureframe "0"                                                  // Animation frame for $emissiontexture.
+	$emissiontint "[1 1 1]"                                                    // Color multiplier for $emissiontexture.
+	$emissionstrength "1"                                                      // Emission intensity; values above 1 boost it.
 	$envmap "env_cubemap"                                                      // Cubemap reflection; overrides $reflectiontexture.
 	$envmapmask "models/your_model/envmap_mask"                                // Linear grayscale mask: 1 reflects, 0 does not; defaults to white.
 	$envmaptint "[1 1 1]"                                                      // Cubemap tint; overridden by $envmapalbedotint.
 	$envmapalbedotint "0"                                                      // Uses base color to tint the cubemap instead of $envmaptint.
 	$envmapalbedoboost "0"                                                     // Brightens albedo tint above its authored value; requires $envmapalbedotint 1.
 	$reflectiontexture "models/your_model/reflection"                          // Linear matcap: R additive, G multiplicative.
+	$reflectiontextureframe "0"                                                // Animation frame for $reflectiontexture.
 	$reflectionstrength "1"                                                    // Reflection mask strength; requires $reflectiontexture.
 	$reflectionaddcolor "[1 1 1]"                                              // Additive reflection tint; requires $reflectiontexture.
 	$reflectionmultiplycolor "[1 1 1]"                                         // Multiplicative reflection tint; requires $reflectiontexture.

@@ -31,7 +31,12 @@ struct PBR_Vars_t
     int alphaTestReference;
     int flashlightTexture;
     int emissionTexture;
+    int emissionTextureFrame;
+    int emissionTint;
+    int emissionStrength;
     int mraoTexture;
+    int mraoTextureFrame;
+    int bumpMapFrame;
     int metalness;
     int roughness;
     int ambientOcclusion;
@@ -141,7 +146,12 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
         SHADER_PARAM(SPECULARTINT, SHADER_PARAM_TYPE_COLOR, "[1 1 1]", "Metal reflectance tint at 82 degrees. White is an untinted Schlick curve.");
         SHADER_PARAM(BASEDIFFUSEROUGHNESS, SHADER_PARAM_TYPE_FLOAT, "0", "Oren-Nayar roughness of the diffuse lobe. 0 is Lambert.");
         SHADER_PARAM(EMISSIONTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Emission texture");
+        SHADER_PARAM(EMISSIONTEXTUREFRAME, SHADER_PARAM_TYPE_INTEGER, "0", "Frame number for $emissiontexture");
+        SHADER_PARAM(EMISSIONTINT, SHADER_PARAM_TYPE_COLOR, "[1 1 1]", "Emission texture tint");
+        SHADER_PARAM(EMISSIONSTRENGTH, SHADER_PARAM_TYPE_FLOAT, "1", "Emission strength");
         SHADER_PARAM(BUMPMAP, SHADER_PARAM_TYPE_TEXTURE, "", "Normal texture");
+        SHADER_PARAM(BUMPMAPFRAME, SHADER_PARAM_TYPE_INTEGER, "0", "Frame number for $bumpmap");
+        SHADER_PARAM(MRAOTEXTUREFRAME, SHADER_PARAM_TYPE_INTEGER, "0", "Frame number for $mraotexture");
         SHADER_PARAM(SPECULARTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Specular F0 RGB map");
         SHADER_PARAM(DETAIL, SHADER_PARAM_TYPE_TEXTURE, "", "Detail texture");
         SHADER_PARAM(DETAILFRAME, SHADER_PARAM_TYPE_INTEGER, "0", "Frame number for $detail");
@@ -204,7 +214,12 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
         info.flashlightTexture = FLASHLIGHTTEXTURE;
         info.envMap = ENVMAP;
         info.emissionTexture = EMISSIONTEXTURE;
+        info.emissionTextureFrame = EMISSIONTEXTUREFRAME;
+        info.emissionTint = EMISSIONTINT;
+        info.emissionStrength = EMISSIONSTRENGTH;
         info.mraoTexture = MRAOTEXTURE;
+        info.mraoTextureFrame = MRAOTEXTUREFRAME;
+        info.bumpMapFrame = BUMPMAPFRAME;
         info.metalness = METALNESS;
         info.roughness = ROUGHNESS;
         info.ambientOcclusion = AMBIENTOCCLUSION;
@@ -259,6 +274,7 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
         SET_PARAM_FLOAT_IF_NOT_DEFINED(METALNESS, 0.0f);
         SET_PARAM_FLOAT_IF_NOT_DEFINED(ROUGHNESS, 1.0f);
         SET_PARAM_FLOAT_IF_NOT_DEFINED(AMBIENTOCCLUSION, 1.0f);
+		SET_PARAM_FLOAT_IF_NOT_DEFINED(EMISSIONSTRENGTH, 1.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(SPECULARIOR, 1.5f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(SPECULARWEIGHT, 1.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(BASEDIFFUSEROUGHNESS, 0.0f);
@@ -533,7 +549,7 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
             // The outline hull reads no material feature, and the .fxc skips
             // those combos under it. Requesting one that was skipped would
             // resolve to the wrong compiled shader.
-            SET_STATIC_PIXEL_SHADER_COMBO(EMISSIVE, !bOutline && !bHairShadow && bHasEmissionTexture);
+            SET_STATIC_PIXEL_SHADER_COMBO(EMISSIVE, !bOutline && !bHairShadow && !bHasFlashlight && bHasEmissionTexture);
             SET_STATIC_PIXEL_SHADER_COMBO(SPECULAR, !bOutline && !bHairShadow && bHasSpecularTexture);
             SET_STATIC_PIXEL_SHADER_COMBO(DETAILTEXTURE, !bOutline && !bHairShadow && bHasDetailTexture);
             SET_STATIC_PIXEL_SHADER_COMBO(LIGHTWARPTEXTURE,
@@ -554,7 +570,7 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
             // PI_ helpers write into that buffer, so they are invalid outside
             // this bracket (they faulted writing to an unset buffer when called
             // from the dynamic pass).
-            PBRWriteLightingCommandBuffer();
+            PBRWriteLightingCommandBuffer(params);
         }
         else // Not snapshotting -- begin dynamic state
         {
@@ -584,7 +600,8 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
             // Setting up emissive texture
             if (bHasEmissionTexture)
             {
-                BindTexture(PBR_SAMPLER_EMISSIVE, info.emissionTexture, 0);
+                BindTexture(PBR_SAMPLER_EMISSIVE, info.emissionTexture, info.emissionTextureFrame);
+                SetPixelShaderConstant(PSREG_CONSTANT_35, info.emissionTint, info.emissionStrength);
             }
             else
             {
@@ -594,7 +611,7 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
             // Setting up normal map
             if (bHasNormalTexture)
             {
-                BindTexture(PBR_SAMPLER_NORMAL, info.bumpMap, 0);
+                BindTexture(PBR_SAMPLER_NORMAL, info.bumpMap, info.bumpMapFrame);
             }
             else
             {
@@ -603,7 +620,7 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
 
             if (bHasMraoTexture)
             {
-                BindTexture(PBR_SAMPLER_MRAO, info.mraoTexture, 0);
+                BindTexture(PBR_SAMPLER_MRAO, info.mraoTexture, info.mraoTextureFrame);
             }
             else
             {
@@ -711,6 +728,7 @@ BEGIN_PBR_SHADER(PulseGirlsFrontline, "PBR with optional face shading, stocking,
                 if (info.ambientOcclusion != -1)  miscConst[3] = params[info.ambientOcclusion]->GetFloatValue();
             }
             pShaderAPI->SetPixelShaderConstant(PBR_PSREG_MISC, miscConst, 1);
+            SetPixelShaderConstant(PSREG_CONSTANT_37, COLOR2);
 
             if (bHairShadow)
             {

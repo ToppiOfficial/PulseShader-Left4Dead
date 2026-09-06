@@ -39,6 +39,8 @@ const float4 g_ReflectionMultiply : register(c51);
 const float4 g_EnvmapTint : register(c52); // .a = albedo tint multiplier, 0 uses rgb
 #endif
 const float4 g_CelShadeParams : register(c54); // .x = intermediate bands
+const float4 g_EmissionTint : register(c35);
+const float4 g_Color2 : register(c37);
 PixelShaderLightInfo cLightInfo[3] : register(PSREG_LIGHT_INFO_ARRAY);
 float3 cAmbientCube[6] : register(PSREG_AMBIENT_CUBE);
 
@@ -190,7 +192,7 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 #endif
 
 #if EMISSIVE
-	color += tex2D(EmissionSampler, i.texCoord).rgb;
+	color += tex2D(EmissionSampler, i.texCoord).rgb * g_EmissionTint.rgb * g_EmissionTint.a;
 #endif
 
 	float alpha = baseAlpha * g_DiffuseModulation.a;
@@ -199,6 +201,6 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 #endif
 	// $color/$color2 and per-instance engine render color (map/entity rendercolor)
 	// arrive folded into the modulation constant, matching stock Source shaders.
-	color *= g_DiffuseModulation.rgb;
+	color *= g_DiffuseModulation.rgb * g_Color2.rgb;
 	return NPRFinalOutput(color, alpha, i.worldPos, i.projPos);
 }

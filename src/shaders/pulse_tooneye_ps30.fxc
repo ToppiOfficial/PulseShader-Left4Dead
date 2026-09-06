@@ -183,6 +183,6 @@ float4 main(PS_INPUT i) : COLOR
 #endif
 	// $color/$color2 and per-instance engine render color (map/entity rendercolor)
 	// arrive folded into the modulation constant, matching stock Source shaders.
-	color *= g_DiffuseModulation.rgb;
+	color *= g_DiffuseModulation.rgb * g_BaseColor2.rgb;
 	return NPRFinalOutput(color, alpha, i.worldPos, i.projPos);
 }

@@ -96,13 +96,17 @@ protected:
 	// Per-instance lighting is baked into a command buffer at snapshot time and
 	// replayed by the engine per instance - the PI_ helpers write into that
 	// buffer, so they are invalid outside this bracket.
-	void PBRWriteLightingCommandBuffer()
+	void PBRWriteLightingCommandBuffer(IMaterialVar **params)
 	{
+		float color2[3];
+		params[COLOR2]->GetVecValue(color2, 3);
+		params[COLOR2]->SetVecValue(1.0f, 1.0f, 1.0f);
 		PI_BeginCommandBuffer();
 		PI_SetModulationPixelShaderDynamicState_LinearColorSpace( 1 );
 		PI_SetPixelShaderAmbientLightCube( PSREG_AMBIENT_CUBE );
 		PI_SetPixelShaderLocalLighting( PSREG_LIGHT_INFO_ARRAY );
 		PI_EndCommandBuffer();
+		params[COLOR2]->SetVecValue(color2, 3);
 	}
 
 	// Binds the cookie, shadow depth, and noise maps and uploads the flashlight
@@ -181,16 +185,13 @@ protected:
 		pShaderAPI->SetPixelShaderConstant(PSREG_EYEPOS_SPEC_EXPONENT, vEyePos_SpecExponent, 1);
 	}
 
-	// c10.rgb = tint (gamma-corrected to match the sRGB base map), c10.a = blend factor.
+	// c10.rgb = tint, c10.a = blend factor.
 	void PBRSetDetailTint(IShaderDynamicAPI *pShaderAPI, IMaterialVar **params,
 		int detailTintVar, int detailBlendFactorVar)
 	{
 		float detailConst[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 		if (detailTintVar != -1)
 			params[detailTintVar]->GetVecValue(detailConst, 3);
-		detailConst[0] = GammaToLinear(detailConst[0]);
-		detailConst[1] = GammaToLinear(detailConst[1]);
-		detailConst[2] = GammaToLinear(detailConst[2]);
 		detailConst[3] = (detailBlendFactorVar != -1)
 					   ? params[detailBlendFactorVar]->GetFloatValue() : 1.0f;
 		pShaderAPI->SetPixelShaderConstant(PBR_PSREG_DETAIL_TINT, detailConst, 1);
@@ -212,8 +213,7 @@ protected:
 			openpbrConst[2] = params[baseDiffuseRoughnessVar]->GetFloatValue();
 		pShaderAPI->SetPixelShaderConstant(PBR_PSREG_OPENPBR, openpbrConst, 1);
 
-		// The tint multiplies a reflectance, not a colour sample, so it stays
-		// linear - no gamma conversion, unlike the detail tint.
+		// The tint multiplies a reflectance, so it stays linear.
 		float tintConst[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 		if (specularTintVar != -1)
 			params[specularTintVar]->GetVecValue(tintConst, 3);

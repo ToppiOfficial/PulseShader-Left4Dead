@@ -1,7 +1,7 @@
 "PulseUmamusume"                                                            // Models only; requires ps_3_0 and authored packed textures.
 {
 	$basetexture "models/your_model/base_color"                                // sRGB lit base color and fallback for $baseshadetexture.
-	$frame "0"                                                                 // Animation frame for $basetexture.
+	$frame "0"                                                                 // Animation frame for $basetexture and $baseshadetexture.
 	$basetexturetransform "center .5 .5 scale 1 1 rotate 0 translate 0 0"      // Base and packed-map UV transform.
 
 	$color "[1 1 1]"                                                           // Primary material color multiplier.
@@ -21,10 +21,14 @@
 	$aohatexture "models/your_model/aoha"                                      // Linear packed map: R AO, G highlight, B opacity.
 	$rsrfltexture "models/your_model/rsrfl"                                    // Linear map: R reflection, G specular/envmap, B rim/specular.
 	$emissiontexture "models/your_model/emission"                              // sRGB emission added after lighting.
+	$emissiontextureframe "0"                                                  // Animation frame for $emissiontexture.
+	$emissiontint "[1 1 1]"                                                    // Color multiplier for $emissiontexture.
+	$emissionstrength "1"                                                      // Emission intensity; values above 1 boost it.
 
 	$envmap "env_cubemap"                                                      // Cubemap masked by RSRFL green; disabled by $face and flashlight passes.
 	$envmaptint "[1 1 1]"                                                      // Cubemap reflection tint; requires $envmap.
 	$reflectiontexture "models/your_model/reflection"                          // Linear packed map: R additive, G multiplicative.
+	$reflectiontextureframe "0"                                                // Animation frame for $reflectiontexture.
 	$reflectionstrength "1"                                                    // Reflection strength; requires $reflectiontexture and RSRFL red.
 	$reflectionaddcolor "[1 1 1]"                                              // Additive reflection tint; requires $reflectiontexture.
 	$reflectionmultiplycolor "[1 1 1]"                                         // Multiplicative reflection tint; requires $reflectiontexture.

@@ -17,7 +17,11 @@ struct NPR_Vars_t
 	int tripleMaskMap;
 	int optionMaskMap;
 	int emissionTexture;
+	int emissionTextureFrame;
+	int emissionTint;
+	int emissionStrength;
 	int reflectionTexture;
+	int reflectionTextureFrame;
 	int envMap;
 	int envMapTint;
 	int reflectionStrength;
@@ -59,9 +63,13 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 		SHADER_PARAM(AOHATEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "AO, highlight, and alpha texture");
 		SHADER_PARAM(RSRFLTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Rim, specular, and reflection texture");
 		SHADER_PARAM(EMISSIONTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Emission texture");
+		SHADER_PARAM(EMISSIONTEXTUREFRAME, SHADER_PARAM_TYPE_INTEGER, "0", "Frame number for $emissiontexture");
+		SHADER_PARAM(EMISSIONTINT, SHADER_PARAM_TYPE_COLOR, "[1 1 1]", "Emission texture tint");
+		SHADER_PARAM(EMISSIONSTRENGTH, SHADER_PARAM_TYPE_FLOAT, "1", "Emission strength");
 		SHADER_PARAM(ENVMAP, SHADER_PARAM_TYPE_ENVMAP, "", "Cubemap reflected on RSRFL green, tinting by base color like metalness");
 		SHADER_PARAM(ENVMAPTINT, SHADER_PARAM_TYPE_COLOR, "[1 1 1]", "Envmap reflection tint");
 		SHADER_PARAM(REFLECTIONTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Packed additive red and multiplicative green reflection texture");
+		SHADER_PARAM(REFLECTIONTEXTUREFRAME, SHADER_PARAM_TYPE_INTEGER, "0", "Frame number for $reflectiontexture");
 		SHADER_PARAM(REFLECTIONSTRENGTH, SHADER_PARAM_TYPE_FLOAT, "1", "Reflection strength");
 		SHADER_PARAM(REFLECTIONADDCOLOR, SHADER_PARAM_TYPE_COLOR, "[1 1 1]", "Additive reflection tint");
 		SHADER_PARAM(REFLECTIONMULTIPLYCOLOR, SHADER_PARAM_TYPE_COLOR, "[1 1 1]", "Multiplicative reflection tint");
@@ -103,7 +111,11 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 		info.tripleMaskMap = AOHATEXTURE;
 		info.optionMaskMap = RSRFLTEXTURE;
 		info.emissionTexture = EMISSIONTEXTURE;
+		info.emissionTextureFrame = EMISSIONTEXTUREFRAME;
+		info.emissionTint = EMISSIONTINT;
+		info.emissionStrength = EMISSIONSTRENGTH;
 		info.reflectionTexture = REFLECTIONTEXTURE;
+		info.reflectionTextureFrame = REFLECTIONTEXTUREFRAME;
 		info.envMap = ENVMAP;
 		info.envMapTint = ENVMAPTINT;
 		info.reflectionStrength = REFLECTIONSTRENGTH;
@@ -147,6 +159,7 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(SPECULARBRIGHTNESS, 30.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(SPECSIZE, 5.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(FALLBACKBRIGHTNESS, 0.001f);
+		SET_PARAM_FLOAT_IF_NOT_DEFINED(EMISSIONSTRENGTH, 1.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(RIMLIGHTWIDTH, 0.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(RIMLIGHTBRIGHTNESS, 2.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(OUTLINEWIDTH, 0.0f);
@@ -281,30 +294,31 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 				SET_STATIC_PIXEL_SHADER(pulse_umamusume_ps30);
 
 				DefaultFog();
-				NPRWriteLightingCommandBuffer();
+				NPRWriteLightingCommandBuffer(params);
 			}
 			else
 			{
 				if (hasBase) BindTexture(SHADER_SAMPLER0, info.baseTexture, info.baseTextureFrame);
 				else pShaderAPI->BindStandardTexture(SHADER_SAMPLER0, TEXTURE_WHITE);
-				if (hasToon) BindTexture(SHADER_SAMPLER1, info.toonMap, 0);
+				if (hasToon) BindTexture(SHADER_SAMPLER1, info.toonMap, info.baseTextureFrame);
 				else pShaderAPI->BindStandardTexture(SHADER_SAMPLER1, TEXTURE_WHITE);
 				if (hasTriple) BindTexture(SHADER_SAMPLER2, info.tripleMaskMap, 0);
 				else pShaderAPI->BindStandardTexture(SHADER_SAMPLER2, TEXTURE_WHITE);
 				if (hasOption) BindTexture(SHADER_SAMPLER3, info.optionMaskMap, 0);
 				else pShaderAPI->BindStandardTexture(SHADER_SAMPLER3, TEXTURE_BLACK);
-				if (hasReflection) BindTexture(SHADER_SAMPLER8, info.reflectionTexture, 0);
+				if (hasReflection) BindTexture(SHADER_SAMPLER8, info.reflectionTexture, info.reflectionTextureFrame);
 				else pShaderAPI->BindStandardTexture(SHADER_SAMPLER8, TEXTURE_BLACK);
 				if (hasDetail) BindTexture(SHADER_SAMPLER7, info.detailTexture, info.detailFrame);
-				if (hasEmission) BindTexture(SHADER_SAMPLER10, info.emissionTexture, 0);
+				if (hasEmission)
+				{
+					BindTexture(SHADER_SAMPLER10, info.emissionTexture, info.emissionTextureFrame);
+					SetPixelShaderConstant(PSREG_CONSTANT_35, info.emissionTint, info.emissionStrength);
+				}
 					if (envmap)
 					{
 						BindTexture(SHADER_SAMPLER9, info.envMap, 0);
 						float envTint[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 						params[info.envMapTint]->GetVecValue(envTint, 3);
-						envTint[0] = GammaToLinear(envTint[0]);
-						envTint[1] = GammaToLinear(envTint[1]);
-						envTint[2] = GammaToLinear(envTint[2]);
 						pShaderAPI->SetPixelShaderConstant(52, envTint);
 					}
 
@@ -314,23 +328,14 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 				float reflectionAdd[4] = { 1.0f, 1.0f, 1.0f,
 					hasReflection ? params[info.reflectionStrength]->GetFloatValue() : 0.0f };
 				params[info.reflectionAddColor]->GetVecValue(reflectionAdd, 3);
-				reflectionAdd[0] = GammaToLinear(reflectionAdd[0]);
-				reflectionAdd[1] = GammaToLinear(reflectionAdd[1]);
-				reflectionAdd[2] = GammaToLinear(reflectionAdd[2]);
 				pShaderAPI->SetPixelShaderConstant(50, reflectionAdd);
 				float reflectionMultiply[4] = { 1.0f, 1.0f, 1.0f, 0.0f };
 				params[info.reflectionMultiplyColor]->GetVecValue(reflectionMultiply, 3);
-				reflectionMultiply[0] = GammaToLinear(reflectionMultiply[0]);
-				reflectionMultiply[1] = GammaToLinear(reflectionMultiply[1]);
-				reflectionMultiply[2] = GammaToLinear(reflectionMultiply[2]);
 				pShaderAPI->SetPixelShaderConstant(51, reflectionMultiply);
 
 				float highlight[4] = { 1.0f, 1.0f, 1.0f,
 					params[info.highlightBrightness]->GetFloatValue() };
 				params[info.highlightColor]->GetVecValue(highlight, 3);
-				highlight[0] = GammaToLinear(highlight[0]);
-				highlight[1] = GammaToLinear(highlight[1]);
-				highlight[2] = GammaToLinear(highlight[2]);
 				pShaderAPI->SetPixelShaderConstant(3, highlight);
 
 				float specular[4] = {
@@ -363,6 +368,7 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 					face ? MAX(params[info.faceCheekSpread]->GetFloatValue(), 1.0f) : 0.0f, 0.0f
 				};
 				pShaderAPI->SetPixelShaderConstant(26, aoAndOutline);
+				SetPixelShaderConstant(PSREG_CONSTANT_37, COLOR2);
 
 				float eyePosition[4];
 				pShaderAPI->GetWorldSpaceCameraPosition(eyePosition);

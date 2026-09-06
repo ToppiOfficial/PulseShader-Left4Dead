@@ -1,5 +1,5 @@
-// The three CBaseVSShader methods our PBR shader actually calls, plus the
-// ConVar declared alongside them.
+// The CBaseVSShader methods our shaders call, plus the ConVar declared
+// alongside them.
 //
 // Alien Swarm's BaseVSShader.cpp cannot be compiled as-is: it includes six
 // generated .inc headers (flashlight_ps30, lightmappedgeneric_flashlight_vs30,
@@ -137,6 +137,23 @@ void CBaseVSShader::SetVertexShaderTextureScaledTransform( int vertexReg, int tr
 	s_pShaderAPI->SetVertexShaderConstant( vertexReg, transformation[0].Base(), 2 );
 }
 
+void CBaseVSShader::SetPixelShaderConstant( int pixelReg, int constantVar )
+{
+	Assert( !IsSnapshotting() );
+	if ( ( !s_ppParams ) || ( constantVar == -1 ) )
+		return;
+
+	IMaterialVar *pPixelVar = s_ppParams[constantVar];
+	Assert( pPixelVar );
+
+	float val[4];
+	if ( pPixelVar->GetType() == MATERIAL_VAR_TYPE_VECTOR )
+		pPixelVar->GetVecValue( val, 4 );
+	else
+		val[0] = val[1] = val[2] = val[3] = pPixelVar->GetFloatValue();
+	s_pShaderAPI->SetPixelShaderConstant( pixelReg, val );
+}
+
 void CBaseVSShader::SetPixelShaderConstantGammaToLinear( int pixelReg, int constantVar )
 {
 	Assert( !IsSnapshotting() );
@@ -151,6 +168,52 @@ void CBaseVSShader::SetPixelShaderConstantGammaToLinear( int pixelReg, int const
 		pPixelVar->GetVecValue( val, 4 );
 	else
 		val[0] = val[1] = val[2] = val[3] = pPixelVar->GetFloatValue();
+
+	val[0] = val[0] > 1.0f ? val[0] : GammaToLinear( val[0] );
+	val[1] = val[1] > 1.0f ? val[1] : GammaToLinear( val[1] );
+	val[2] = val[2] > 1.0f ? val[2] : GammaToLinear( val[2] );
+
+	s_pShaderAPI->SetPixelShaderConstant( pixelReg, val );
+}
+
+void CBaseVSShader::SetPixelShaderConstant( int pixelReg, int constantVar, int constantVar2 )
+{
+	Assert( !IsSnapshotting() );
+	if ( ( !s_ppParams ) || ( constantVar == -1 ) || ( constantVar2 == -1 ) )
+		return;
+
+	IMaterialVar *pPixelVar = s_ppParams[constantVar];
+	IMaterialVar *pPixelVar2 = s_ppParams[constantVar2];
+	Assert( pPixelVar );
+	Assert( pPixelVar2 );
+
+	float val[4];
+	if ( pPixelVar->GetType() == MATERIAL_VAR_TYPE_VECTOR )
+		pPixelVar->GetVecValue( val, 3 );
+	else
+		val[0] = val[1] = val[2] = pPixelVar->GetFloatValue();
+	val[3] = pPixelVar2->GetFloatValue();
+
+	s_pShaderAPI->SetPixelShaderConstant( pixelReg, val );
+}
+
+void CBaseVSShader::SetPixelShaderConstantGammaToLinear( int pixelReg, int constantVar, int constantVar2 )
+{
+	Assert( !IsSnapshotting() );
+	if ( ( !s_ppParams ) || ( constantVar == -1 ) || ( constantVar2 == -1 ) )
+		return;
+
+	IMaterialVar *pPixelVar = s_ppParams[constantVar];
+	IMaterialVar *pPixelVar2 = s_ppParams[constantVar2];
+	Assert( pPixelVar );
+	Assert( pPixelVar2 );
+
+	float val[4];
+	if ( pPixelVar->GetType() == MATERIAL_VAR_TYPE_VECTOR )
+		pPixelVar->GetVecValue( val, 3 );
+	else
+		val[0] = val[1] = val[2] = pPixelVar->GetFloatValue();
+	val[3] = pPixelVar2->GetFloatValue();
 
 	val[0] = val[0] > 1.0f ? val[0] : GammaToLinear( val[0] );
 	val[1] = val[1] > 1.0f ? val[1] : GammaToLinear( val[1] );

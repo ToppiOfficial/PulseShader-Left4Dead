@@ -43,7 +43,6 @@ struct ToonEye_Vars_t
 	int irisScale;
 	int irisMaskReference;
 	int irisMaskSoftness;
-	int selfIllum;
 	int selfIllumMask;
 	int selfIllumMaskFrame;
 	int selfIllumTint;
@@ -72,7 +71,6 @@ BEGIN_NPR_SHADER(PulseToonEye, "Toon eyeball shader: eyerefract projection with 
 		SHADER_PARAM(IRISSCALE, SHADER_PARAM_TYPE_FLOAT, "1", "Scales the iris and its specular in UV space; 1 is authored size. Proxy-drivable post control on top of the mdl eyeball size");
 		SHADER_PARAM(IRISMASKREFERENCE, SHADER_PARAM_TYPE_FLOAT, "0.5", "Base-alpha value where the iris/eyewhite tint boundary sits, like $alphatestreference");
 		SHADER_PARAM(IRISMASKSOFTNESS, SHADER_PARAM_TYPE_FLOAT, "0", "Extra width added to the screen-space anti-aliased boundary; 0 is a crisp ~2px edge");
-		SHADER_PARAM(SELFILLUM, SHADER_PARAM_TYPE_BOOL, "0", "Enable selfillum from $selfillummask");
 		SHADER_PARAM(SELFILLUMMASK, SHADER_PARAM_TYPE_TEXTURE, "", "Selfillum mask (red); masked pixels read as unlit eye color");
 		SHADER_PARAM(SELFILLUMMASKFRAME, SHADER_PARAM_TYPE_INTEGER, "0", "Frame number for $selfillummask");
 		SHADER_PARAM(SELFILLUMTINT, SHADER_PARAM_TYPE_COLOR, "[1 1 1]", "Selfillum tint");
@@ -111,7 +109,6 @@ BEGIN_NPR_SHADER(PulseToonEye, "Toon eyeball shader: eyerefract projection with 
 		info.irisScale = IRISSCALE;
 		info.irisMaskReference = IRISMASKREFERENCE;
 		info.irisMaskSoftness = IRISMASKSOFTNESS;
-		info.selfIllum = SELFILLUM;
 		info.selfIllumMask = SELFILLUMMASK;
 		info.selfIllumMaskFrame = SELFILLUMMASKFRAME;
 		info.selfIllumTint = SELFILLUMTINT;
@@ -141,6 +138,8 @@ BEGIN_NPR_SHADER(PulseToonEye, "Toon eyeball shader: eyerefract projection with 
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(FALLBACKBRIGHTNESS, 0.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(IRISMASKREFERENCE, 0.5f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(IRISMASKSOFTNESS, 0.0f);
+		if (!params[SELFILLUMTINT]->IsDefined())
+			params[SELFILLUMTINT]->SetVecValue(1.0f, 1.0f, 1.0f);
 
 		NPRSetFlashlightTexturePath(params);
 	}
@@ -174,7 +173,7 @@ BEGIN_NPR_SHADER(PulseToonEye, "Toon eyeball shader: eyerefract projection with 
 		bool hasShade = params[info.shadeTexture]->IsTexture();
 		bool hasSpecular = params[info.specularTexture]->IsTexture();
 		bool hasLightWarp = params[info.lightWarpTexture]->IsTexture();
-		bool selfIllum = params[info.selfIllum]->GetIntValue() != 0;
+		bool selfIllum = IS_FLAG_SET(MATERIAL_VAR_SELFILLUM) != 0;
 		bool hasSelfIllumMask = params[info.selfIllumMask]->IsTexture();
 		bool hasEnvMap = params[info.envMap]->IsTexture();
 		bool flashlight = UsingFlashlight(params);
@@ -247,7 +246,7 @@ BEGIN_NPR_SHADER(PulseToonEye, "Toon eyeball shader: eyerefract projection with 
 				SET_STATIC_PIXEL_SHADER(pulse_tooneye_ps30);
 
 				DefaultFog();
-				NPRWriteLightingCommandBuffer();
+				NPRWriteLightingCommandBuffer(params);
 			}
 			else
 			{
@@ -263,53 +262,35 @@ BEGIN_NPR_SHADER(PulseToonEye, "Toon eyeball shader: eyerefract projection with 
 				else pShaderAPI->BindStandardTexture(SHADER_SAMPLER8, TEXTURE_BLACK);
 				if (envmap) BindTexture(SAMPLER_ENVMAP, info.envMap, 0);
 
-				// c0: $color (.a = $alpha), c49: $color2 - both linear, both stack in the PS.
+				// c0: $color (.a = $alpha), c49: $color2 - both stack in the PS.
 				float baseColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 				params[info.baseColor]->GetVecValue(baseColor, 3);
-				baseColor[0] = GammaToLinear(baseColor[0]);
-				baseColor[1] = GammaToLinear(baseColor[1]);
-				baseColor[2] = GammaToLinear(baseColor[2]);
 				baseColor[3] = params[info.alpha]->GetFloatValue();
 				pShaderAPI->SetPixelShaderConstant(PSREG_SELFILLUMTINT, baseColor);
 
 				float baseColor2[4] = { 1.0f, 1.0f, 1.0f, 0.0f };
 				params[info.baseColor2]->GetVecValue(baseColor2, 3);
-				baseColor2[0] = GammaToLinear(baseColor2[0]);
-				baseColor2[1] = GammaToLinear(baseColor2[1]);
-				baseColor2[2] = GammaToLinear(baseColor2[2]);
 				pShaderAPI->SetPixelShaderConstant(49, baseColor2);
 
 				// .a carries $irisscale; clamped so the pixel shader's divide can't blow up.
 				float irisColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 				params[info.irisColor]->GetVecValue(irisColor, 3);
-				irisColor[0] = GammaToLinear(irisColor[0]);
-				irisColor[1] = GammaToLinear(irisColor[1]);
-				irisColor[2] = GammaToLinear(irisColor[2]);
 				irisColor[3] = MAX(params[info.irisScale]->GetFloatValue(), 0.0001f);
 				pShaderAPI->SetPixelShaderConstant(48, irisColor);
 
 				float eyeWhiteColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 				params[info.eyeWhiteColor]->GetVecValue(eyeWhiteColor, 3);
-				eyeWhiteColor[0] = GammaToLinear(eyeWhiteColor[0]);
-				eyeWhiteColor[1] = GammaToLinear(eyeWhiteColor[1]);
-				eyeWhiteColor[2] = GammaToLinear(eyeWhiteColor[2]);
 				pShaderAPI->SetPixelShaderConstant(50, eyeWhiteColor);
 
 				float selfIllumTint[4] = { 1.0f, 1.0f, 1.0f,
 					selfIllum ? 1.0f : 0.0f };
 				params[info.selfIllumTint]->GetVecValue(selfIllumTint, 3);
-				selfIllumTint[0] = GammaToLinear(selfIllumTint[0]);
-				selfIllumTint[1] = GammaToLinear(selfIllumTint[1]);
-				selfIllumTint[2] = GammaToLinear(selfIllumTint[2]);
 				pShaderAPI->SetPixelShaderConstant(51, selfIllumTint);
 
 				if (envmap)
 				{
 					float envTint[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 					params[info.envMapTint]->GetVecValue(envTint, 3);
-					envTint[0] = GammaToLinear(envTint[0]);
-					envTint[1] = GammaToLinear(envTint[1]);
-					envTint[2] = GammaToLinear(envTint[2]);
 					envTint[3] = params[info.envMapScale]->GetFloatValue();
 					pShaderAPI->SetPixelShaderConstant(52, envTint);
 				}

@@ -62,6 +62,8 @@ const float4 g_OpenPBRParms                     : register( c27 );
 // repurpose. Not c32 - the Alien Swarm branch reserves that for cScreenSize on
 // ps_3_0, and L4D2 is that branch even though our source-pbr headers omit it.
 const float4 g_SpecularTint                     : register( c33 );
+const float4 g_EmissionTint                     : register( c35 );
+const float4 g_Color2                           : register( c37 );
 
 sampler BaseTextureSampler          : register(s0);     // Base map, selfillum in alpha
 sampler NormalTextureSampler        : register(s1);     // Normal map
@@ -244,12 +246,12 @@ float alpha = albedo.a * g_DiffuseModulation.a;
     combinedLighting *= albedo.a * g_DiffuseModulation.a;
 #endif
 #if EMISSIVE && !FLASHLIGHT
-    combinedLighting += emission;
+    combinedLighting += emission * g_EmissionTint.rgb * g_EmissionTint.a;
 #endif
 
     // $color/$color2 and per-instance engine render color (map/entity rendercolor)
     // arrive folded into the modulation constant, matching stock Source shaders.
-    combinedLighting *= g_DiffuseModulation.rgb;
+    combinedLighting *= g_DiffuseModulation.rgb * g_Color2.rgb;
 
     bool writeDepth = (WRITE_DEPTH_TO_DESTALPHA != 0) && (WRITEWATERFOGTODESTALPHA == 0);
     return PulseFinalOutput(float4(combinedLighting, alpha), fogFactor, PIXELFOGTYPE,

@@ -131,7 +131,7 @@ float3 openpbrEnergyCompensation(float3 F0, float2 dfg)
 // single-scatter form plus the multiple-scatter term that keeps rough diffuse
 // from darkening. diffuseRoughness 0 reduces to Lambert.
 //
-// ponytail: no 1/PI here. Source's light intensities are authored against
+// no 1/PI here. Source's light intensities are authored against
 // VertexLitGeneric's unnormalised Lambert, so adding the correct normalisation
 // darkens every existing material by ~3x. Restore it only alongside a global
 // light-intensity rescale.

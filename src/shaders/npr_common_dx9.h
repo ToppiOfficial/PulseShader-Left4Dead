@@ -77,13 +77,17 @@ protected:
 	// Per-instance lighting is baked into a command buffer at snapshot time and
 	// replayed per instance, so the PI_ helpers are only valid inside this
 	// bracket.
-	void NPRWriteLightingCommandBuffer()
+	void NPRWriteLightingCommandBuffer(IMaterialVar **params)
 	{
+		float color2[3];
+		params[COLOR2]->GetVecValue(color2, 3);
+		params[COLOR2]->SetVecValue(1.0f, 1.0f, 1.0f);
 		PI_BeginCommandBuffer();
 		PI_SetModulationPixelShaderDynamicState_LinearColorSpace(1);
 		PI_SetPixelShaderAmbientLightCube(PSREG_AMBIENT_CUBE);
 		PI_SetPixelShaderLocalLighting(PSREG_LIGHT_INFO_ARRAY);
 		PI_EndCommandBuffer();
+		params[COLOR2]->SetVecValue(color2, 3);
 	}
 
 	// Binds the cookie, shadow depth, and noise maps and uploads the flashlight
@@ -133,16 +137,12 @@ protected:
 			outlineWidth, outlineAngle);
 	}
 
-	// Tint is gamma-corrected to match the sRGB base map; alpha carries the
-	// blend strength.
+	// Alpha carries the blend strength.
 	void NPRSetDetailTint(IShaderDynamicAPI *pShaderAPI, IMaterialVar **params,
 		int detailTintVar, int detailBlendFactorVar)
 	{
 		float detailColor[4] = { 1.0f, 1.0f, 1.0f, params[detailBlendFactorVar]->GetFloatValue() };
 		params[detailTintVar]->GetVecValue(detailColor, 3);
-		detailColor[0] = GammaToLinear(detailColor[0]);
-		detailColor[1] = GammaToLinear(detailColor[1]);
-		detailColor[2] = GammaToLinear(detailColor[2]);
 		pShaderAPI->SetPixelShaderConstant(NPR_PSREG_DETAIL_TINT, detailColor);
 	}
 

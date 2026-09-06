@@ -38,6 +38,8 @@ const float4 g_DetailParams : register(c48);
 const float4 g_OpacityParams : register(c49);
 const float4 g_ReflectionAdd : register(c50);
 const float4 g_ReflectionMultiply : register(c51);
+const float4 g_EmissionTint : register(c35);
+const float4 g_Color2 : register(c37);
 #if ENVMAP
 const float4 g_EnvmapTint : register(c52);
 #endif
@@ -279,7 +281,7 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 #endif
 
 #if EMISSIVE
-	color += tex2D(EmissionSampler, i.texCoord).rgb;
+	color += tex2D(EmissionSampler, i.texCoord).rgb * g_EmissionTint.rgb * g_EmissionTint.a;
 #endif
 
 	float alpha = opacity * g_DiffuseModulation.a;
@@ -288,6 +290,6 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 #endif
 	// $color/$color2 and per-instance engine render color (map/entity rendercolor)
 	// arrive folded into the modulation constant, matching stock Source shaders.
-	color *= g_DiffuseModulation.rgb;
+	color *= g_DiffuseModulation.rgb * g_Color2.rgb;
 	return NPRFinalOutput(color, alpha, i.worldPos, i.projPos);
 }

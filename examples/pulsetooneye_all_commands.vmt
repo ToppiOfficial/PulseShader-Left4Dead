@@ -1,7 +1,7 @@
 "PulseToonEye"                                                              // Eyeball models only; requires ps_3_0 and studiomdl eye data.
 {
 	$basetexture "models/your_model/eye"                                       // sRGB eye color; alpha separates iris 0 from eyewhite 1.
-	$frame "0"                                                                 // Animation frame for $basetexture.
+	$frame "0"                                                                 // Animation frame for $basetexture and $baseshadetexture.
 
 	$color "[1 1 1]"                                                           // Primary whole-eye color multiplier.
 	$color2 "[1 1 1]"                                                          // Additional whole-eye color multiplier.
@@ -25,6 +25,7 @@
 
 	$selfillum "0"                                                             // Enables unlit eye color from $selfillummask or the iris fallback.
 	$selfillummask "models/your_model/eye_selfillum"                           // Linear red-channel mask; requires $selfillum 1.
+	$selfillummaskframe "0"                                                     // Animation frame for $selfillummask.
 	$selfillumtint "[1 1 1]"                                                   // Emissive color multiplier; requires $selfillum 1.
 
 	$eyelid "0"                                                                // Draws the iris over front hair; unavailable during flashlight passes.
