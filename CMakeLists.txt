@@ -89,18 +89,18 @@ endfunction()
 
 pulse_add_shader_pair(PREFIX pulse_pbr
     VS_EXTRA_SOURCES pulse_outline_vs30.h
-    PS_EXTRA_SOURCES openpbr_common_ps3_x.h)
+    PS_EXTRA_SOURCES openpbr_common_ps3_x.h pulse_fog_ps3_x.h)
 pulse_add_shader_pair(PREFIX pulse_girlsfrontline
     VS_EXTRA_SOURCES pulse_outline_vs30.h
-    PS_EXTRA_SOURCES openpbr_common_ps3_x.h)
+    PS_EXTRA_SOURCES openpbr_common_ps3_x.h pulse_fog_ps3_x.h)
 pulse_add_shader_pair(PREFIX pulse_npr
     VS_EXTRA_SOURCES pulse_outline_vs30.h
-    PS_EXTRA_SOURCES npr_common_ps3_x.h)
+    PS_EXTRA_SOURCES npr_common_ps3_x.h pulse_fog_ps3_x.h)
 pulse_add_shader_pair(PREFIX pulse_umamusume
     VS_EXTRA_SOURCES pulse_outline_vs30.h
-    PS_EXTRA_SOURCES npr_common_ps3_x.h)
+    PS_EXTRA_SOURCES npr_common_ps3_x.h pulse_fog_ps3_x.h)
 pulse_add_shader_pair(PREFIX pulse_tooneye
-    PS_EXTRA_SOURCES npr_common_ps3_x.h)
+    PS_EXTRA_SOURCES npr_common_ps3_x.h pulse_fog_ps3_x.h)
 
 add_custom_target(pulse_shaders DEPENDS ${PULSE_SHADER_OUTPUTS})
 

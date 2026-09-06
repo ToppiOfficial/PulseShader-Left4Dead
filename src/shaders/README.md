@@ -21,6 +21,8 @@ PBR family:
 
 Shared by both families:
 
+- `pulse_fog_ps3_x.h` - Alien Swarm radial fog parameter convention for L4D2,
+  replacing the SDK-2013 range calculation; additive flashlight passes fade to black
 - `pulse_outline_dx9.h` / `pulse_outline_vs30.h` - inverted-hull outline
 - `pulse_shader_convars.h` / `.cpp` - one definition of `mat_fullbright` and
   `mat_specular` for the whole DLL
@@ -69,6 +71,23 @@ than naming the variant that uses it.
 Samplers are fixed family-wide in the common header; the leftover slots are the
 variant's, which is where map layouts differ. NPR reserves s0 and s4-s8 and
 leaves s1-s3; PBR reserves s0-s7 and s10-s12 and leaves s8-s9.
+
+## Fog and water requirements
+
+Fog and transparent-water compatibility are mandatory for every new shader,
+variant, and pass. Preserve the destination-alpha handling established by
+commit `9bda496d498362f827b72139b6a1b0f9d309d510`:
+
+- Honor `INT_RENDERPARM_WRITE_DEPTH_TO_DESTALPHA` on eligible opaque passes,
+  including outlines. Water-fog alpha takes precedence over depth alpha.
+- Keep destination-alpha writes disabled for translucent, alpha-tested,
+  flashlight, hair-shadow, and blended overlay passes.
+- Use `pulse_fog_ps3_x.h` directly or through `NPRFinalOutput` for L4D2 radial
+  fog. Apply fog after lighting; additive flashlight lighting must fade to black.
+- Build and test in-game with transparent water, underwater views, and custom
+  fog colors/distances/density, with the flashlight on and off. Check outlines
+  and overlays where applicable. A successful build alone is insufficient;
+  report any unavailable in-game checks as outstanding.
 
 ## Static combos
 

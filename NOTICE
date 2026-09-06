@@ -21,6 +21,8 @@ Chain of derivation
              no thexa4 code remains, but the derivation is real history)
 
   Valve Corporation - Alien Swarm SDK (Source 1 SDK License)
+    -> src/shaders/pulse_fog_ps3_x.h (radial fog calculation adapted from
+       materialsystem/stdshaders/common_fxc.h)
     -> src/sdk_override/  (modified copies of SDK headers, corrected to match
        the interface layouts L4D2 actually ships)
 

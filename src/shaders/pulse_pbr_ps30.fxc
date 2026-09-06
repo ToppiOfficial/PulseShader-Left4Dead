@@ -29,6 +29,7 @@
 // SKIP: ( $FLASHLIGHT == 1 ) && ( $EMISSIVE == 1 )
 
 #include "common_ps_fxc.h"
+#include "pulse_fog_ps3_x.h"
 #include "common_flashlight_fxc.h"
 #include "shader_constant_register_map.h"
 
@@ -229,10 +230,7 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
     }
     // End flashlight
 
-float fogFactor = 0.0f;
-#if !FLASHLIGHT
-fogFactor = CalcPixelFogFactor(PIXELFOGTYPE, g_FogParams, g_EyePos.z, i.worldPos.z, i.projPos.z);
-#endif
+float fogFactor = PulseCalcPixelFogFactor(PIXELFOGTYPE, g_FogParams, g_EyePos.xyz, i.worldPos, i.projPos.z);
 
 float alpha = albedo.a * g_DiffuseModulation.a;
 #if !FLASHLIGHT
@@ -254,6 +252,6 @@ float alpha = albedo.a * g_DiffuseModulation.a;
     combinedLighting *= g_DiffuseModulation.rgb;
 
     bool writeDepth = (WRITE_DEPTH_TO_DESTALPHA != 0) && (WRITEWATERFOGTODESTALPHA == 0);
-    return FinalOutput(float4(combinedLighting, alpha), fogFactor, PIXELFOGTYPE,
+    return PulseFinalOutput(float4(combinedLighting, alpha), fogFactor, PIXELFOGTYPE,
         TONEMAP_SCALE_LINEAR, writeDepth, i.projPos.z);
 }

@@ -1,6 +1,8 @@
 #ifndef NPR_COMMON_PS3_X_H
 #define NPR_COMMON_PS3_X_H
 
+#include "pulse_fog_ps3_x.h"
+
 // Shared pixel-shader helpers for the PulseNPR family.
 //
 // Include after the variant has declared its constants and samplers. These
@@ -89,19 +91,15 @@ float3 NPRFlashlightIntensity(float3 worldPos, float3 projPos, out float3 lightD
 }
 #endif
 
-// Fog and destination-alpha handling. The flashlight pass is additive, so it
-// must not re-apply fog.
+// Fog and destination-alpha handling for every NPR variant.
 float4 NPRFinalOutput(float3 color, float alpha, float3 worldPos, float3 projPos)
 {
-	float fogFactor = 0.0;
-#if !FLASHLIGHT
-	fogFactor = CalcPixelFogFactor(PIXELFOGTYPE, g_FogParams, g_EyePos.z, worldPos.z, projPos.z);
-#endif
+	float fogFactor = PulseCalcPixelFogFactor(PIXELFOGTYPE, g_FogParams, g_EyePos.xyz, worldPos, projPos.z);
 	bool writeDepth = (WRITE_DEPTH_TO_DESTALPHA != 0) && (WRITEWATERFOGTODESTALPHA == 0);
 #if WRITEWATERFOGTODESTALPHA && (PIXELFOGTYPE == PIXEL_FOG_TYPE_HEIGHT)
 	alpha = fogFactor;
 #endif
-	return FinalOutput(float4(color, alpha), fogFactor, PIXELFOGTYPE, TONEMAP_SCALE_LINEAR,
+	return PulseFinalOutput(float4(color, alpha), fogFactor, PIXELFOGTYPE, TONEMAP_SCALE_LINEAR,
 		writeDepth, projPos.z);
 }
 
