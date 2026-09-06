@@ -1,5 +1,8 @@
 // STATIC:  "OUTLINE"                   "0..1"
 // STATIC:  "DETAILTEXTURE"             "0..1"
+// STATIC:  "SPECULARMASKTEXTURE"       "0..1"
+// STATIC:  "EMISSIVE"                  "0..1"
+// STATIC:  "ENVMAP"                    "0..1"
 // STATIC:  "FLASHLIGHT"                "0..1"
 // STATIC:  "FLASHLIGHTDEPTHFILTERMODE" "0..2"
 // DYNAMIC: "NUM_LIGHTS"                "0..4"
@@ -9,6 +12,11 @@
 // DYNAMIC: "FLASHLIGHTSHADOWS"         "0..1"
 
 // SKIP: ($OUTLINE == 1) && ($FLASHLIGHT == 1)
+// SKIP: ($OUTLINE == 1) && ($SPECULARMASKTEXTURE == 1)
+// SKIP: ($OUTLINE == 1) && ($EMISSIVE == 1)
+// SKIP: ($OUTLINE == 1) && ($ENVMAP == 1)
+// SKIP: ($FLASHLIGHT == 1) && ($EMISSIVE == 1)
+// SKIP: ($FLASHLIGHT == 1) && ($ENVMAP == 1)
 // SKIP: ($FLASHLIGHT == 0) && ($FLASHLIGHTSHADOWS == 1)
 // SKIP: ($FLASHLIGHT == 0) && ($FLASHLIGHTDEPTHFILTERMODE != 0)
 
@@ -27,6 +35,10 @@ const float4 g_DetailParams : register(c48);
 const float4 g_ShadowTint : register(c49);
 const float4 g_ReflectionAdd : register(c50);
 const float4 g_ReflectionMultiply : register(c51);
+#if ENVMAP
+const float4 g_EnvmapTint : register(c52); // .a = albedo tint multiplier, 0 uses rgb
+#endif
+const float4 g_CelShadeParams : register(c54); // .x = intermediate bands
 PixelShaderLightInfo cLightInfo[3] : register(PSREG_LIGHT_INFO_ARRAY);
 float3 cAmbientCube[6] : register(PSREG_AMBIENT_CUBE);
 
@@ -39,8 +51,18 @@ const float4 g_ShadowTweaks : register(PSREG_ENVMAP_TINT__SHADOW_TWEAKS);
 #endif
 
 sampler BaseSampler : register(s0);
+#if SPECULARMASKTEXTURE
+sampler SpecularMaskSampler : register(s1);
+#endif
+#if EMISSIVE
+sampler EmissionSampler : register(s2);
+#endif
 sampler DetailSampler : register(s7);
 sampler ReflectionSampler : register(s8);
+#if ENVMAP
+sampler EnvmapMaskSampler : register(s3);
+sampler EnvmapSampler : register(s9);
+#endif
 #if FLASHLIGHT
 sampler FlashlightSampler : register(s4);
 sampler ShadowDepthSampler : register(s5);
@@ -60,18 +82,24 @@ struct PS_INPUT
 	float3 viewNormal  : TEXCOORD6;
 };
 
-// Two-tone cel shading with an unmasked specular lobe. Variants that carry
-// authored masks override this wholesale rather than extending it.
+// Two-tone cel shading with an optional red-channel specular mask.
 float3 ShadeSurface(float3 baseColor, float3 shadowColor, float3 normal,
-	float3 viewDirection, float3 lightDirection)
+	float3 viewDirection, float3 lightDirection, float specularMask)
 {
 	float nDotL = dot(normal, lightDirection);
 	float lit = NPRCelStep(nDotL - 0.4);
+	if (g_CelShadeParams.x > 0.0)
+	{
+		float bands = g_CelShadeParams.x + 1.0;
+		float ramp = saturate((nDotL + 0.4) / 0.8);
+		lit = floor(ramp * bands + 0.5) / bands;
+	}
 
 	float specularStep = step(g_Specular.x * 0.1, nDotL * dot(normal, viewDirection));
 	float specular = smoothstep(0.0, max(g_Specular.y, 0.0001), specularStep);
 
-	return lerp(shadowColor, baseColor, lit) + baseColor * g_Specular.z * specular * lit;
+	return lerp(shadowColor, baseColor, lit)
+		+ baseColor * specularMask * g_Specular.z * specular * lit;
 }
 
 float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
@@ -100,38 +128,69 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 	float3 baseColor = baseSample.rgb;
 	float3 shadowColor = baseColor * g_ShadowTint.rgb;
 	float3 color = 0.0;
+#if SPECULARMASKTEXTURE
+	float2 highlightMask = tex2D(SpecularMaskSampler, i.texCoord).rg;
+#else
+	float2 highlightMask = 1.0;
+#endif
 
 #if FLASHLIGHT
 	float3 lightDirection;
 	float3 intensity = NPRFlashlightIntensity(i.worldPos, i.projPos, lightDirection);
-	color = ShadeSurface(baseColor, shadowColor, normal, viewDirection, lightDirection) * intensity;
+	color = ShadeSurface(baseColor, shadowColor, normal, viewDirection, lightDirection,
+		highlightMask.r) * intensity;
 #else
 	float3 ambient = PixelShaderAmbientLight(normal, cAmbientCube);
 #if NUM_LIGHTS == 0
-	// With no direct lights the cel step has nothing to resolve against, so the
-	// surface would go black; $fallbackbrightness sets the floor.
 	ambient = max(ambient, g_Specular.w);
 #endif
-	color = shadowColor * ambient;
 	float3 effectLighting = ambient;
+	float3 ambientDirection = float3(
+		dot(cAmbientCube[0] - cAmbientCube[1], float3(0.2125, 0.7154, 0.0721)),
+		dot(cAmbientCube[2] - cAmbientCube[3], float3(0.2125, 0.7154, 0.0721)),
+		dot(cAmbientCube[4] - cAmbientCube[5], float3(0.2125, 0.7154, 0.0721)));
+	float ambientDirectionLength = length(ambientDirection);
+	ambientDirection = ambientDirectionLength > 1e-5
+		? ambientDirection / ambientDirectionLength : float3(0.0, 0.0, 1.0);
+	color = ShadeSurface(baseColor, shadowColor, normal, viewDirection,
+		ambientDirection, highlightMask.r) * ambient;
 	for (int lightIndex = 0; lightIndex < NUM_LIGHTS; ++lightIndex)
 	{
 		float3 lightDirection = normalize(PixelShaderGetLightVector(i.worldPos, cLightInfo, lightIndex));
 		float3 lightColor = PixelShaderGetLightColor(cLightInfo, lightIndex)
 			* NPRGetLightAtten(i.lightAtten, lightIndex) * NPR_LIGHT_SCALE;
 		effectLighting += lightColor;
-		color += ShadeSurface(baseColor, shadowColor, normal, viewDirection, lightDirection) * lightColor;
+		// Accumulate at the light's true magnitude so brightness tracks the source,
+		// rather than snapping between a flat-lit tone and the ambient floor.
+		color += ShadeSurface(baseColor, shadowColor, normal, viewDirection,
+			lightDirection, highlightMask.r) * lightColor;
 	}
 
 	// Matcap reflection: additive in red, multiplicative in green, indexed by the
 	// view-space normal. This is the slot MMD's spa and sph maps use.
 	float effectVisibility = saturate(max(effectLighting.r, max(effectLighting.g, effectLighting.b)));
+	float rimEdge = saturate(dot(normal, viewDirection)) - g_DetailParams.y;
+	float rim = 1.0 - NPRCelStep(rimEdge);
+	color += baseColor * highlightMask.g * g_DetailParams.w * rim * effectVisibility;
+#if ENVMAP
+	float3 envColor = ENV_MAP_SCALE * texCUBE(EnvmapSampler,
+		reflect(-viewDirection, normal)).rgb;
+	float envMask = tex2D(EnvmapMaskSampler, i.texCoord).r;
+	float3 envTint = g_EnvmapTint.a > 0.0f
+		? baseColor * g_EnvmapTint.a : g_EnvmapTint.rgb;
+	color += envColor * NPRReflectionIntensity(cAmbientCube) * envTint * envMask;
+#else
 	float2 reflectionCoord = NPRTwoSidedNormal(normalize(i.viewNormal), faceSign).xy * 0.5 + 0.5;
 	float2 reflection = tex2D(ReflectionSampler, reflectionCoord).rg;
 	float reflectionMask = saturate(g_ReflectionAdd.a) * effectVisibility;
 	color = color * lerp(1.0, reflection.g * g_ReflectionMultiply.rgb, reflectionMask)
 		+ reflection.r * g_ReflectionAdd.rgb * reflectionMask;
 #endif
+#endif
+#endif
+
+#if EMISSIVE
+	color += tex2D(EmissionSampler, i.texCoord).rgb;
 #endif
 
 	float alpha = baseAlpha * g_DiffuseModulation.a;

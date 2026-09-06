@@ -12,13 +12,15 @@
 	$alphatest "0"                                                             // Uses the selected opacity channel as a cutout when enabled.
 	$alphatestreference "0.5"                                                  // Cutout threshold; requires $alphatest 1.
 	$translucent "0"                                                           // Enables standard alpha blending.
-	$additive "0"                                                              // Selects translucency, but this shader still uses standard alpha blending.
+	$additive "0"                                                              // Enables additive blending; $translucent weights it by alpha.
 	$nocull "0"                                                                // Draws both sides when enabled.
+	$nodecal "0"                                                               // Prevents projected decals from drawing on this material.
 	$renderbackface "0"                                                        // Draws backfaces with reversed shading normals; $nocull wins.
 
 	$baseshadetexture "models/your_model/base_shade"                           // sRGB authored shadow-side base color.
 	$aohatexture "models/your_model/aoha"                                      // Linear packed map: R AO, G highlight, B opacity.
 	$rsrfltexture "models/your_model/rsrfl"                                    // Linear map: R reflection, G specular/envmap, B rim/specular.
+	$emissiontexture "models/your_model/emission"                              // sRGB emission added after lighting.
 
 	$envmap "env_cubemap"                                                      // Cubemap masked by RSRFL green; disabled by $face and flashlight passes.
 	$envmaptint "[1 1 1]"                                                      // Cubemap reflection tint; requires $envmap.
@@ -35,7 +37,7 @@
 	$specsize "5"                                                              // Specular highlight size.
 	$fallbackbrightness "0.001"                                                // Minimum brightness when no direct lights are present.
 
-	$rimlightwidth "0"                                                         // Rim width masked by RSRFL red; 0 disables the rim.
+	$rimlightwidth "0"                                                         // Rim width masked by RSRFL blue; 0 disables the rim.
 	$rimlightbrightness "2"                                                    // Rim intensity; requires $rimlightwidth above 0.
 
 	$outlinewidth "0"                                                          // Outline width in model units; 0 disables the outline pass.

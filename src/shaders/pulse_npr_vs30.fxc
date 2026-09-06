@@ -4,11 +4,13 @@
 // DYNAMIC: "LIGHTING_PREVIEW" "0..1"
 // DYNAMIC: "NUM_LIGHTS"       "0..4"
 // STATIC:  "OUTLINE"          "0..1"
+// STATIC:  "EYELID"           "0..1"
 
 #include "common_vs_fxc.h"
 #include "pulse_outline_vs30.h"
 
 static const bool g_bSkinning = SKINNING ? true : false;
+static const float PULSE_EYELID_DEPTH_OFFSET = 4.0;
 static const int g_FogType = DOWATERFOG;
 const float4 cBaseTexCoordTransform[2] : register(SHADER_SPECIFIC_CONST_0);
 const float4 cOutlineParams : register(SHADER_SPECIFIC_CONST_2);
@@ -52,6 +54,10 @@ VS_OUTPUT main(const VS_INPUT v)
 	float3 worldNormal;
 	SkinPositionAndNormal(g_bSkinning, position, normal, v.vBoneWeights, v.vBoneIndices,
 		worldPos, worldNormal);
+
+#if EYELID
+	worldPos += normalize(cEyePos - worldPos) * PULSE_EYELID_DEPTH_OFFSET;
+#endif
 
 	float4 projPos = mul(float4(worldPos, 1), cViewProj);
 #if OUTLINE

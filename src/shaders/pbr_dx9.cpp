@@ -219,7 +219,7 @@ BEGIN_PBR_SHADER(PulsePBR, "Physically based rendering for models")
 
         // Determining whether we're dealing with a fully opaque material
         BlendType_t nBlendType = EvaluateBlendRequirements(info.baseTexture, true);
-        bool bFullyOpaque = (nBlendType != BT_BLENDADD) && (nBlendType != BT_BLEND) && !bIsAlphaTested;
+        bool bFullyOpaque = nBlendType == BT_NONE && !bIsAlphaTested;
 
         if (IsSnapshotting())
         {

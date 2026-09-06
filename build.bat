@@ -40,7 +40,6 @@ if not exist "%CMAKE%" set "CMAKE=cmake"
 
 call "%VCVARS%" >nul || exit /b 1
 
-"%CMAKE%" -E remove_directory "%~dp0dist" || exit /b 1
 "%CMAKE%" -S . -B build -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release -DPython3_EXECUTABLE="%PYTHON_EXE%" -DPERL_EXECUTABLE="%PERL_EXE%" || exit /b 1
 "%CMAKE%" --build build || exit /b 1
 

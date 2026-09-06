@@ -12,11 +12,20 @@
 	$alphatest "0"                                                             // Uses base texture alpha as a cutout when enabled.
 	$alphatestreference "0.5"                                                  // Cutout threshold; requires $alphatest 1.
 	$translucent "0"                                                           // Enables standard alpha blending.
-	$additive "0"                                                              // Selects translucency, but PulseNPR still uses standard alpha blending.
+	$additive "0"                                                              // Enables additive blending; $translucent weights it by alpha.
 	$nocull "0"                                                                // Draws both sides when enabled.
+	$nodecal "0"                                                               // Prevents projected decals from drawing on this material.
 	$renderbackface "0"                                                        // Draws backfaces with reversed shading normals; $nocull wins.
 
-	$shadowcolor "[0.6 0.6 0.7]"                                               // Base color tint on the shadow side of the cel step.
+	$shadowcolor "[0.3 0.3 0.3]"                                               // Linear albedo multiplier on the shadow side of the cel step.
+	$celshadesteps "0"                                                         // Intermediate shadow-to-light bands from 0 to 4; 0 keeps the hard two-tone split.
+	$specularmasktexture "models/your_model/highlight_mask"                    // Linear packed mask: R specular, G rim; B/A unused.
+	$emissiontexture "models/your_model/emission"                              // sRGB emission added after lighting.
+	$envmap "env_cubemap"                                                      // Cubemap reflection; overrides $reflectiontexture.
+	$envmapmask "models/your_model/envmap_mask"                                // Linear grayscale mask: 1 reflects, 0 does not; defaults to white.
+	$envmaptint "[1 1 1]"                                                      // Cubemap tint; overridden by $envmapalbedotint.
+	$envmapalbedotint "0"                                                      // Uses base color to tint the cubemap instead of $envmaptint.
+	$envmapalbedoboost "0"                                                     // Brightens albedo tint above its authored value; requires $envmapalbedotint 1.
 	$reflectiontexture "models/your_model/reflection"                          // Linear matcap: R additive, G multiplicative.
 	$reflectionstrength "1"                                                    // Reflection mask strength; requires $reflectiontexture.
 	$reflectionaddcolor "[1 1 1]"                                              // Additive reflection tint; requires $reflectiontexture.
@@ -26,11 +35,14 @@
 	$specularbrightness "0"                                                    // Specular intensity; 0 disables the highlight.
 	$specsize "5"                                                              // Specular highlight size.
 	$fallbackbrightness "0.001"                                                // Minimum brightness when no direct lights are present.
+	$rimlightwidth "0"                                                         // Rim width masked by the highlight mask's green channel; 0 disables it.
+	$rimlightbrightness "2"                                                    // Rim intensity; requires $rimlightwidth above 0.
 
 	$outlinewidth "0"                                                          // Outline width in model units; 0 disables the outline pass.
 	$outlineangle "0"                                                          // Minimum expansion angle in degrees; 0 disables angle fading.
 	$outlinecolor "[0 0 0]"                                                    // Outline color.
 	$outlinebaseblend "0"                                                      // Base texture contribution to the outline.
+	$eyelid "0"                                                                // Pulls lashes or brows through front hair as opaque geometry and disables their outline.
 
 	$detail "models/your_model/detail"                                         // Detail texture combined with the base color.
 	$detailframe "0"                                                           // Animation frame for $detail; requires $detail.

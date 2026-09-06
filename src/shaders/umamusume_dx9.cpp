@@ -16,6 +16,7 @@ struct NPR_Vars_t
 	int toonMap;
 	int tripleMaskMap;
 	int optionMaskMap;
+	int emissionTexture;
 	int reflectionTexture;
 	int envMap;
 	int envMapTint;
@@ -57,6 +58,7 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 		SHADER_PARAM(BASESHADETEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Authored shaded base texture");
 		SHADER_PARAM(AOHATEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "AO, highlight, and alpha texture");
 		SHADER_PARAM(RSRFLTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Rim, specular, and reflection texture");
+		SHADER_PARAM(EMISSIONTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Emission texture");
 		SHADER_PARAM(ENVMAP, SHADER_PARAM_TYPE_ENVMAP, "", "Cubemap reflected on RSRFL green, tinting by base color like metalness");
 		SHADER_PARAM(ENVMAPTINT, SHADER_PARAM_TYPE_COLOR, "[1 1 1]", "Envmap reflection tint");
 		SHADER_PARAM(REFLECTIONTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Packed additive red and multiplicative green reflection texture");
@@ -100,6 +102,7 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 		info.toonMap = BASESHADETEXTURE;
 		info.tripleMaskMap = AOHATEXTURE;
 		info.optionMaskMap = RSRFLTEXTURE;
+		info.emissionTexture = EMISSIONTEXTURE;
 		info.reflectionTexture = REFLECTIONTEXTURE;
 		info.envMap = ENVMAP;
 		info.envMapTint = ENVMAPTINT;
@@ -175,6 +178,7 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 		if (params[info.toonMap]->IsDefined()) LoadTexture(info.toonMap);
 		if (params[info.tripleMaskMap]->IsDefined()) LoadTexture(info.tripleMaskMap);
 		if (params[info.optionMaskMap]->IsDefined()) LoadTexture(info.optionMaskMap);
+		if (params[info.emissionTexture]->IsDefined()) LoadTexture(info.emissionTexture);
 		if (params[info.reflectionTexture]->IsDefined()) LoadTexture(info.reflectionTexture);
 		if (params[info.envMap]->IsDefined()) LoadCubeMap(info.envMap);
 		if (params[info.detailTexture]->IsDefined()) LoadTexture(info.detailTexture);
@@ -190,6 +194,7 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 		bool hasToon = params[info.toonMap]->IsTexture();
 		bool hasTriple = params[info.tripleMaskMap]->IsTexture();
 		bool hasOption = params[info.optionMaskMap]->IsTexture();
+		bool hasEmission = params[info.emissionTexture]->IsTexture();
 		bool hasReflection = params[info.reflectionTexture]->IsTexture();
 		bool hasEnvMap = params[info.envMap]->IsTexture();
 		bool hasDetail = params[info.detailTexture]->IsTexture();
@@ -198,9 +203,9 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 		bool eyelid = params[info.eyelid]->GetIntValue() != 0;
 		BlendType_t blendType = EvaluateBlendRequirements(info.baseTexture, true,
 			info.detailTexture);
-		bool translucent = blendType == BT_BLEND || blendType == BT_BLENDADD;
+		bool blended = blendType != BT_NONE;
 		bool alphaTest = IS_FLAG_SET(MATERIAL_VAR_ALPHATEST);
-		bool fullyOpaque = !translucent && !alphaTest;
+		bool fullyOpaque = !blended && !alphaTest;
 		// An eyelid hull would outline the lashes against the hair they draw over, so
 		// $eyelid suppresses the pass rather than relying on the width being left at 0.
 		bool outlineEnabled = !flashlight && !eyelid
@@ -222,7 +227,7 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 			if (IsSnapshotting())
 			{
 				NPRSnapshotPassState(pShaderShadow, params, outline, renderBackfacePass,
-					flashlight, translucent,
+					flashlight, blendType,
 					alphaTest, params[info.alphaTestReference]->GetFloatValue());
 
 				for (int sampler = SHADER_SAMPLER0; sampler <= SHADER_SAMPLER3; ++sampler)
@@ -233,6 +238,11 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 				pShaderShadow->EnableSRGBRead(SHADER_SAMPLER3, false);
 				pShaderShadow->EnableTexture(SHADER_SAMPLER8, true);
 				pShaderShadow->EnableSRGBRead(SHADER_SAMPLER8, false);
+				if (!outline && !flashlight && hasEmission)
+				{
+					pShaderShadow->EnableTexture(SHADER_SAMPLER10, true);
+					pShaderShadow->EnableSRGBRead(SHADER_SAMPLER10, true);
+				}
 					if (envmap)
 					{
 						pShaderShadow->EnableTexture(SHADER_SAMPLER9, true);
@@ -264,6 +274,7 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 				SET_STATIC_PIXEL_SHADER_COMBO(FACE, face);
 				SET_STATIC_PIXEL_SHADER_COMBO(OUTLINE, outline);
 				SET_STATIC_PIXEL_SHADER_COMBO(DETAILTEXTURE, hasDetail);
+				SET_STATIC_PIXEL_SHADER_COMBO(EMISSIVE, !outline && !flashlight && hasEmission);
 					SET_STATIC_PIXEL_SHADER_COMBO(ENVMAP, envmap);
 				SET_STATIC_PIXEL_SHADER_COMBO(FLASHLIGHT, flashlight);
 				SET_STATIC_PIXEL_SHADER_COMBO(FLASHLIGHTDEPTHFILTERMODE, shadowFilter);
@@ -285,6 +296,7 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 				if (hasReflection) BindTexture(SHADER_SAMPLER8, info.reflectionTexture, 0);
 				else pShaderAPI->BindStandardTexture(SHADER_SAMPLER8, TEXTURE_BLACK);
 				if (hasDetail) BindTexture(SHADER_SAMPLER7, info.detailTexture, info.detailFrame);
+				if (hasEmission) BindTexture(SHADER_SAMPLER10, info.emissionTexture, 0);
 					if (envmap)
 					{
 						BindTexture(SHADER_SAMPLER9, info.envMap, 0);
@@ -340,7 +352,7 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 				// brightness instead of relying on the edge term alone.
 				float rimLightWidth = params[info.rimLightWidth]->GetFloatValue();
 				float detailParams[4] = {
-					(float)params[info.detailBlendMode]->GetIntValue(), translucent ? 1.0f : 0.0f,
+					(float)params[info.detailBlendMode]->GetIntValue(), blended ? 1.0f : 0.0f,
 					rimLightWidth, rimLightWidth > 0.0f
 						? params[info.rimLightBrightness]->GetFloatValue() : 0.0f
 				};

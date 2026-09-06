@@ -129,9 +129,9 @@ BEGIN_NPR_SHADER(PulseToonEye, "Toon eyeball shader: eyerefract projection with 
 	SHADER_INIT_PARAMS()
 	{
 		SET_FLAGS(MATERIAL_VAR_MODEL);
-		// Toon eyes read best with a soft terminator, and decals on an eyeball look wrong.
-		SET_FLAGS(MATERIAL_VAR_HALFLAMBERT);
 		SET_FLAGS(MATERIAL_VAR_SUPPRESS_DECALS);
+		// Toon eyes read best with a soft terminator.
+		SET_FLAGS(MATERIAL_VAR_HALFLAMBERT);
 
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(EYELIDBLEND, 1.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(SPECULARBRIGHTNESS, 1.0f);
@@ -204,7 +204,7 @@ BEGIN_NPR_SHADER(PulseToonEye, "Toon eyeball shader: eyerefract projection with 
 				else
 				{
 					NPRSnapshotPassState(pShaderShadow, params, false, false,
-						flashlight, false, false, 0.0f);
+						flashlight, BT_NONE, false, 0.0f);
 				}
 
 				pShaderShadow->EnableTexture(SHADER_SAMPLER0, true); // base

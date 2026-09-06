@@ -33,21 +33,24 @@ protected:
 	// Blend, depth, and cull state for one pass of the outline/main loop. The
 	// outline pass draws back faces, so it inverts culling.
 	void NPRSnapshotPassState(IShaderShadow *pShaderShadow, IMaterialVar **params,
-		bool outline, bool renderBackface, bool flashlight, bool translucent,
+		bool outline, bool renderBackface, bool flashlight, BlendType_t blendType,
 		bool alphaTest, float alphaTestRef)
 	{
+		bool blended = blendType != BT_NONE;
 		pShaderShadow->EnableCulling(!outline && !renderBackface
 			&& !IS_FLAG_SET(MATERIAL_VAR_NOCULL));
 		pShaderShadow->EnableAlphaTest(alphaTest);
 		if (alphaTest && alphaTestRef > 0.0f)
 			pShaderShadow->AlphaFunc(SHADER_ALPHAFUNC_GEQUAL, alphaTestRef);
-		pShaderShadow->EnableDepthWrites(!flashlight && !translucent);
-		pShaderShadow->EnableBlending(flashlight || translucent);
+		pShaderShadow->EnableDepthWrites(!flashlight && !blended);
 		if (flashlight)
+		{
+			pShaderShadow->EnableBlending(true);
 			pShaderShadow->BlendFunc(SHADER_BLEND_ONE, SHADER_BLEND_ONE);
-		else if (translucent)
-			pShaderShadow->BlendFunc(SHADER_BLEND_SRC_ALPHA, SHADER_BLEND_ONE_MINUS_SRC_ALPHA);
-		pShaderShadow->EnableAlphaWrites(!flashlight && !translucent && !alphaTest);
+		}
+		else
+			SetBlendingShadowState(blendType);
+		pShaderShadow->EnableAlphaWrites(!flashlight && !blended && !alphaTest);
 	}
 
 	void NPRSetRenderBackface(IShaderDynamicAPI *pShaderAPI, bool renderBackface)

@@ -47,6 +47,13 @@ The NPR shaders follow the same model-only and ps_3_0 scope. They support
 opaque, cutout, and translucent character surfaces plus base tint and detail
 textures. Eye shaders remain outside its scope.
 
+Every new general surface shader, variant, and rendering pass must preserve
+standard VMT rendering controls: `$additive`, `$translucent`, `$alpha`,
+`$alphatest` and `$alphatestreference`, `$color`, `$color2`, and `$nodecal`.
+Use Source's standard blend modes and honor their depth-write and
+destination-alpha implications. A specialized shader may omit transparency
+controls when base alpha carries shader data, as PulseToonEye does for its iris.
+
 ## Adding a variant
 
 Variants are siblings, never subclasses of each other. `BEGIN_INHERITED_SHADER`

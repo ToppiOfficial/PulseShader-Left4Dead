@@ -13,6 +13,8 @@
 	$alphatestreference "0.5"                                                  // Cutout threshold; requires $alphatest 1.
 	$translucent "0"                                                           // Enables standard alpha blending.
 	$additive "0"                                                              // Enables additive blending.
+	$nodecal "0"                                                               // Prevents projected decals from drawing on this material.
+	$nocull "0"                                                                // Draws both sides when enabled.
 	$halflambert "0"                                                           // Uses half-Lambert diffuse falloff when enabled.
 	$renderbackface "0"                                                        // Draws backfaces with reversed shading normals; $nocull wins.
 

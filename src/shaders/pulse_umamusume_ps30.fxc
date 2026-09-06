@@ -1,6 +1,7 @@
 // STATIC:  "FACE"                      "0..1"
 // STATIC:  "OUTLINE"                   "0..1"
 // STATIC:  "DETAILTEXTURE"             "0..1"
+// STATIC:  "EMISSIVE"                  "0..1"
 // STATIC:  "ENVMAP"                    "0..1"
 // STATIC:  "FLASHLIGHT"                "0..1"
 // STATIC:  "FLASHLIGHTDEPTHFILTERMODE" "0..2"
@@ -11,6 +12,8 @@
 // DYNAMIC: "FLASHLIGHTSHADOWS"         "0..1"
 
 // SKIP: ($OUTLINE == 1) && ($FLASHLIGHT == 1)
+// SKIP: ($OUTLINE == 1) && ($EMISSIVE == 1)
+// SKIP: ($FLASHLIGHT == 1) && ($EMISSIVE == 1)
 // SKIP: ($FLASHLIGHT == 0) && ($FLASHLIGHTSHADOWS == 1)
 // SKIP: ($FLASHLIGHT == 0) && ($FLASHLIGHTDEPTHFILTERMODE != 0)
 // The envmap reflection is only evaluated in the lit body path.
@@ -57,6 +60,9 @@ sampler DetailSampler : register(s7);
 sampler ReflectionSampler : register(s8);
 #if ENVMAP
 sampler EnvmapSampler : register(s9);
+#endif
+#if EMISSIVE
+sampler EmissionSampler : register(s10);
 #endif
 #if FLASHLIGHT
 sampler FlashlightSampler : register(s4);
@@ -270,6 +276,10 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 #endif
 #endif
 #endif
+#endif
+
+#if EMISSIVE
+	color += tex2D(EmissionSampler, i.texCoord).rgb;
 #endif
 
 	float alpha = opacity * g_DiffuseModulation.a;

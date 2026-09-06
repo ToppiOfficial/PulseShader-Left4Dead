@@ -7,6 +7,7 @@
 	$color2 "[1 1 1]"                                                          // Additional whole-eye color multiplier.
 	$srgbtint "[1 1 1]"                                                        // Additional tint when sRGB-correct blending is active.
 	$alpha "1"                                                                 // Main-pass output alpha; this does not enable translucency.
+	$nodecal "1"                                                               // ToonEye always prevents projected decals.
 	$nocull "0"                                                                // Draws both sides when enabled.
 
 	$baseshadetexture "models/your_model/eye_shade"                            // sRGB shadow color; falls back to $basetexture.
