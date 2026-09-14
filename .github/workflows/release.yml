@@ -31,4 +31,5 @@ jobs:
         run: |
           $version = (Get-Content VERSION -Raw).Trim()
           $tag = "v$version"
+          if (gh release view $tag 2>$null) { throw "Release $tag already exists - bump VERSION before releasing." }
           gh release create $tag "PulseShader-$version.zip" --target $env:COMMIT_SHA --title $tag --notes "" --draft
