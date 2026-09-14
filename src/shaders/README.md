@@ -62,6 +62,27 @@ params on the shared base, where they would collide with every other variant's.
 `BEGIN_NPR_SHADER` / `BEGIN_PBR_SHADER` open a fresh namespace instead, giving
 each variant its own params, combos, and constant registers.
 
+`BEGIN_PBR_SHADER` declares the family-wide `$dielectriccoefficient` parameter.
+Pass `DIELECTRICCOEFFICIENT` to `PBRSetOpenPBRParams` in every PBR variant.
+Its default is `0.04`, preserving the default dielectric reflectance. Values
+are clamped to 0..1 and scale IOR-derived F0 by `coefficient / 0.04`, alongside
+`$specularweight`. Fully metallic surfaces and `$speculartexture` overrides
+are unaffected. Direct lighting, flashlight, and environment lighting share
+the resulting F0.
+
+`BEGIN_PBR_SHADER` also declares `$metalnesstransitionbias`. Pass
+`METALNESSTRANSITIONBIAS` to `PBRSetOpenPBRParams`, and pass `c33.w` to
+`openpbrSetupSurface`. It controls diffuse albedo as
+`albedo * pow(1 - metalness, bias)`, leaving specular metalness unchanged.
+The default `1` preserves linear diffuse extinction; `2.407` fades diffuse
+faster between dielectric and metal. Values below `0.00001` are clamped to
+that minimum. `$speculartexture` bypasses this control. The formula was
+verified against CSSO's compiled PBR shader and its DLL parameter description.
+
+In every variant's `SHADER_INIT_PARAMS`, use `SET_PARAM_FLOAT_IF_NOT_DEFINED`
+to initialize `DIELECTRICCOEFFICIENT` to `0.04f` and `METALNESSTRANSITIONBIAS`
+to `1.0f`. Parameter declaration defaults alone are not sufficient initialization.
+
 A new variant is three files and two build lines:
 
 1. `<name>_dx9.cpp` opening with `BEGIN_NPR_SHADER` or `BEGIN_PBR_SHADER`

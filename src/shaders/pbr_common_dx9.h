@@ -34,9 +34,8 @@ const Sampler_t PBR_SAMPLER_SPECULAR      = SHADER_SAMPLER12;
 #define PBR_PSREG_MISC        26
 
 // c27.xyz = OpenPBR specular IOR, specular weight, base diffuse roughness.
-// c33.rgb = the F82 metal tint. Above the shared map, which ends at c31 and
-// whose low slots variants already repurpose; c32 is cScreenSize on the Alien
-// Swarm branch. Family-wide, like the two above.
+// c33.rgb = F82 metal tint, c33.w = metalness transition bias.
+// c33 is above the shared map; c32 is cScreenSize on the Alien Swarm branch.
 #define PBR_PSREG_OPENPBR       27
 #define PBR_PSREG_SPECULAR_TINT 33
 
@@ -197,18 +196,18 @@ protected:
 		pShaderAPI->SetPixelShaderConstant(PBR_PSREG_DETAIL_TINT, detailConst, 1);
 	}
 
-	// The OpenPBR scalars. Defaults reproduce the pre-OpenPBR look: IOR 1.5 is
-	// F0 0.04, diffuse roughness 0 is Lambert, and a white F82 tint collapses
-	// the metal Fresnel back to plain Schlick.
+	// IOR 1.5 and coefficient 0.04 give F0 0.04. Diffuse roughness 0 is Lambert;
+	// a white F82 tint gives plain Schlick metal Fresnel.
 	void PBRSetOpenPBRParams(IShaderDynamicAPI *pShaderAPI, IMaterialVar **params,
-		int specularIorVar, int specularWeightVar, int baseDiffuseRoughnessVar,
-		int specularTintVar, bool renderBackface)
+		int dielectricCoefficientVar, int specularIorVar, int specularWeightVar, int baseDiffuseRoughnessVar,
+		int specularTintVar, int metalnessTransitionBiasVar, bool renderBackface)
 	{
 		float openpbrConst[4] = { 1.5f, 1.0f, 0.0f, renderBackface ? 1.0f : 0.0f };
 		if (specularIorVar != -1)
 			openpbrConst[0] = params[specularIorVar]->GetFloatValue();
 		if (specularWeightVar != -1)
 			openpbrConst[1] = params[specularWeightVar]->GetFloatValue();
+		openpbrConst[1] *= clamp(params[dielectricCoefficientVar]->GetFloatValue(), 0.0f, 1.0f) / 0.04f;
 		if (baseDiffuseRoughnessVar != -1)
 			openpbrConst[2] = params[baseDiffuseRoughnessVar]->GetFloatValue();
 		pShaderAPI->SetPixelShaderConstant(PBR_PSREG_OPENPBR, openpbrConst, 1);
@@ -217,6 +216,7 @@ protected:
 		float tintConst[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 		if (specularTintVar != -1)
 			params[specularTintVar]->GetVecValue(tintConst, 3);
+		tintConst[3] = MAX(params[metalnessTransitionBiasVar]->GetFloatValue(), 0.00001f);
 		pShaderAPI->SetPixelShaderConstant(PBR_PSREG_SPECULAR_TINT, tintConst, 1);
 	}
 
@@ -239,6 +239,9 @@ protected:
 
 // BEGIN_VS_SHADER passes CBaseVSShader as the base class; this passes ours, so
 // every variant gets the helpers above while keeping its own param namespace.
-#define BEGIN_PBR_SHADER(_name, _help) __BEGIN_SHADER_INTERNAL( CPBRShaderBase, _name, _help, 0 )
+#define BEGIN_PBR_SHADER(_name, _help) \
+	__BEGIN_SHADER_INTERNAL( CPBRShaderBase, _name, _help, 0 ) \
+	SHADER_PARAM(DIELECTRICCOEFFICIENT, SHADER_PARAM_TYPE_FLOAT, "0.04", "Dielectric F0 at IOR 1.5 and specular weight 1, clamped to 0..1.") \
+	SHADER_PARAM(METALNESSTRANSITIONBIAS, SHADER_PARAM_TYPE_FLOAT, "1", "Diffuse metalness falloff exponent without a specular texture. Minimum 0.00001; 1 is linear.")
 
 #endif // PBR_COMMON_DX9_H

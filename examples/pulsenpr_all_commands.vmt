@@ -1,7 +1,8 @@
 "PulseNPR"                                                                  // Models only; requires ps_3_0.
 {
 	$basetexture "models/your_model/base_color"                                // sRGB base color; alpha can drive cutout or blending.
-	$frame "0"                                                                 // Animation frame for $basetexture.
+	$baseshadetexture "models/your_model/base_shade"                           // Optional sRGB shadow-side base color; uses $basetexture when omitted.
+	$frame "0"                                                                 // Animation frame for $basetexture and $baseshadetexture.
 	$basetexturetransform "center .5 .5 scale 1 1 rotate 0 translate 0 0"      // Base texture UV transform.
 
 	$color "[1 1 1]"                                                           // Primary material color multiplier.
@@ -17,7 +18,7 @@
 	$nodecal "0"                                                               // Prevents projected decals from drawing on this material.
 	$renderbackface "0"                                                        // Draws backfaces with reversed shading normals; $nocull wins.
 
-	$shadowcolor "[0.3 0.3 0.3]"                                               // Linear albedo multiplier on the shadow side of the cel step.
+	$shadowcolor "[0.3 0.3 0.3]"                                               // Linear tint applied to the shadow-side base color.
 	$celshadesteps "0"                                                         // Intermediate shadow-to-light bands from 0 to 4; 0 keeps the hard two-tone split.
 	$specularmasktexture "models/your_model/highlight_mask"                    // Linear packed mask: R specular, G rim; B/A unused.
 	$emissiontexture "models/your_model/emission"                              // sRGB emission added after lighting.

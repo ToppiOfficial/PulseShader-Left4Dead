@@ -16,6 +16,7 @@ struct NPR_Vars_t
 	int baseTexture;
 	int baseTextureFrame;
 	int baseTextureTransform;
+	int baseShadeTexture;
 	int shadowColor;
 	int celShadeSteps;
 	int specularMaskTexture;
@@ -58,6 +59,7 @@ struct NPR_Vars_t
 
 BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 	BEGIN_SHADER_PARAMS;
+		SHADER_PARAM(BASESHADETEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Optional authored shadow-side base color");
 		SHADER_PARAM(SHADOWCOLOR, SHADER_PARAM_TYPE_COLOR, "[0.3 0.3 0.3]", "Tint applied to the base map on the shadow side of the cel step");
 		SHADER_PARAM(CELSHADESTEPS, SHADER_PARAM_TYPE_INTEGER, "0", "Intermediate cel-shading bands, clamped from 0 to 4");
 		SHADER_PARAM(SPECULARMASKTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Packed highlight mask: specular in red, rim light in green");
@@ -102,6 +104,7 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 		info.baseTexture = BASETEXTURE;
 		info.baseTextureFrame = FRAME;
 		info.baseTextureTransform = BASETEXTURETRANSFORM;
+		info.baseShadeTexture = BASESHADETEXTURE;
 		info.shadowColor = SHADOWCOLOR;
 		info.celShadeSteps = CELSHADESTEPS;
 		info.specularMaskTexture = SPECULARMASKTEXTURE;
@@ -175,6 +178,7 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 		SetupVars(info);
 		LoadTexture(info.flashlightTexture);
 		if (params[info.baseTexture]->IsDefined()) LoadTexture(info.baseTexture);
+		if (params[info.baseShadeTexture]->IsDefined()) LoadTexture(info.baseShadeTexture);
 		if (params[info.specularMaskTexture]->IsDefined()) LoadTexture(info.specularMaskTexture);
 		if (params[info.emissionTexture]->IsDefined()) LoadTexture(info.emissionTexture);
 		if (params[info.envMap]->IsDefined()) LoadCubeMap(info.envMap);
@@ -190,6 +194,7 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 		NPR_Vars_t info;
 		SetupVars(info);
 		bool hasBase = params[info.baseTexture]->IsTexture();
+		bool hasBaseShade = params[info.baseShadeTexture]->IsTexture();
 		bool hasSpecularMask = params[info.specularMaskTexture]->IsTexture();
 		bool hasEmission = params[info.emissionTexture]->IsTexture();
 		bool hasEnvMap = params[info.envMap]->IsTexture();
@@ -226,6 +231,11 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 
 				pShaderShadow->EnableTexture(NPR_SAMPLER_BASE, true);
 				pShaderShadow->EnableSRGBRead(NPR_SAMPLER_BASE, true);
+				if (hasBaseShade)
+				{
+					pShaderShadow->EnableTexture(SHADER_SAMPLER10, true);
+					pShaderShadow->EnableSRGBRead(SHADER_SAMPLER10, true);
+				}
 				if (hasSpecularMask)
 				{
 					pShaderShadow->EnableTexture(SHADER_SAMPLER1, true);
@@ -268,6 +278,7 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 
 				DECLARE_STATIC_PIXEL_SHADER(pulse_npr_ps30);
 				SET_STATIC_PIXEL_SHADER_COMBO(OUTLINE, outline);
+				SET_STATIC_PIXEL_SHADER_COMBO(BASESHADETEXTURE, !outline && hasBaseShade);
 				SET_STATIC_PIXEL_SHADER_COMBO(DETAILTEXTURE, hasDetail);
 				SET_STATIC_PIXEL_SHADER_COMBO(SPECULARMASKTEXTURE, !outline && hasSpecularMask);
 				SET_STATIC_PIXEL_SHADER_COMBO(EMISSIVE, !outline && !flashlight && hasEmission);
@@ -283,6 +294,7 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 			{
 				if (hasBase) BindTexture(NPR_SAMPLER_BASE, info.baseTexture, info.baseTextureFrame);
 				else pShaderAPI->BindStandardTexture(NPR_SAMPLER_BASE, TEXTURE_WHITE);
+				if (hasBaseShade) BindTexture(SHADER_SAMPLER10, info.baseShadeTexture, info.baseTextureFrame);
 				if (hasSpecularMask) BindTexture(SHADER_SAMPLER1, info.specularMaskTexture, 0);
 				if (hasEmission)
 				{

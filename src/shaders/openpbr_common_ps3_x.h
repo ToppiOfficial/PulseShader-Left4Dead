@@ -188,7 +188,8 @@ struct OpenPBRSurface
 OpenPBRSurface openpbrSetupSurface(float3 albedo, float metalness, float roughness,
                                    float diffuseRoughness, float NoV,
                                    float specularIor, float specularWeight,
-                                   float3 specularTint, float3 f0Override, bool useF0Override)
+                                   float3 specularTint, float metalnessTransitionBias,
+                                   float3 f0Override, bool useF0Override)
 {
     OpenPBRSurface s;
     s.roughness = clamp(roughness, 0.02, 1.0);
@@ -201,9 +202,9 @@ OpenPBRSurface openpbrSetupSurface(float3 albedo, float metalness, float roughne
                          : lerp(float3(dielectricF0, dielectricF0, dielectricF0), albedo, s.metalness);
     s.specularColor = lerp(float3(1, 1, 1), specularTint, s.metalness);
 
-    // Metals have no diffuse lobe. An explicit F0 map drives specular alone and
-    // leaves albedo intact.
-    s.albedo = useF0Override ? albedo : albedo * (1.0 - s.metalness);
+    // The bias controls diffuse extinction between dielectric and metal.
+    // An explicit F0 map leaves diffuse albedo intact.
+    s.albedo = useF0Override ? albedo : albedo * pow(1.0 - s.metalness, metalnessTransitionBias);
 
     s.dfg = openpbrDFG(s.roughness, s.NoV);
     s.energyComp = openpbrEnergyCompensation(s.F0, s.dfg);

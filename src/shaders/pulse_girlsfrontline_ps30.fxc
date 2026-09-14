@@ -96,10 +96,8 @@ const float4 g_MiscParms                        : register( c26 );
 // x = $specularior, y = $specularweight, z = $basediffuseroughness,
 // w = $renderbackface after $nocull precedence.
 const float4 g_OpenPBRParms                     : register( c27 );
-// rgb = $speculartint, the F82 tint applied to the metal Fresnel curve. Above
-// the shared map, which runs out at c31 and whose low slots variants already
-// repurpose. Not c32 - the Alien Swarm branch reserves that for cScreenSize on
-// ps_3_0, and L4D2 is that branch even though our source-pbr headers omit it.
+// rgb = $speculartint, w = $metalnesstransitionbias.
+// c33 is above the shared map; c32 is reserved for cScreenSize.
 const float4 g_SpecularTint                     : register( c33 );
 const float4 g_EmissionTint                     : register( c35 );
 const float4 g_Color2                           : register( c37 );
@@ -305,7 +303,7 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 
     OpenPBRSurface surface = openpbrSetupSurface(albedo.rgb, metalness, roughness,
             g_OpenPBRParms.z, lightDirectionAngle, g_OpenPBRParms.x, g_OpenPBRParms.y,
-            g_SpecularTint.rgb, f0Override, useF0Override);
+            g_SpecularTint.rgb, g_SpecularTint.w, f0Override, useF0Override);
 
 #if STOCKING
     // The stocking tint is a diffuse-only stylisation, so it lands on the
@@ -330,7 +328,9 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
         float3 specularIrradiance = lerp(lookupHigh, lookupLow, surface.roughness * surface.roughness);
         float3 reflectionIBL = openpbrEnvReflection(surface, specularIrradiance);
 
-        ambientLighting = diffuseIBL * ambientOcclusion
+        // AO squared on the ambient diffuse deepens the shaded/unlit side for
+        // CS2-style crevice depth; direct diffuse below takes a single AO.
+        ambientLighting = diffuseIBL * ambientOcclusion * ambientOcclusion
                         + reflectionIBL * openpbrSpecularOcclusion(surface, ambientOcclusion);
     }
     // End ambient
@@ -356,6 +356,8 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
                     normal, g_BaseColor.a != 0.0, diffuseFalloffOverride, LightWarpSampler
                     PBR_BRDF_RAMP_ARGS(RampSampler, 1.0));
         }
+        // Baked AO on direct light so lit crevices darken too (face term included).
+        directLighting *= ambientOcclusion;
     }
     // End direct
 

@@ -144,6 +144,8 @@ BEGIN_PBR_SHADER(PulsePBR, "Physically based rendering for models")
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(EMISSIONSTRENGTH, 1.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(SPECULARIOR, 1.5f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(SPECULARWEIGHT, 1.0f);
+		SET_PARAM_FLOAT_IF_NOT_DEFINED(DIELECTRICCOEFFICIENT, 0.04f);
+		SET_PARAM_FLOAT_IF_NOT_DEFINED(METALNESSTRANSITIONBIAS, 1.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(BASEDIFFUSEROUGHNESS, 0.0f);
 		if (!params[SPECULARTINT]->IsDefined())
 			params[SPECULARTINT]->SetVecValue(1.0f, 1.0f, 1.0f);
@@ -447,8 +449,8 @@ BEGIN_PBR_SHADER(PulsePBR, "Physically based rendering for models")
             pShaderAPI->SetPixelShaderConstant(PBR_PSREG_MISC, miscConst, 1);
             SetPixelShaderConstant(PSREG_CONSTANT_37, COLOR2);
 
-            PBRSetOpenPBRParams(pShaderAPI, params, info.specularIor, info.specularWeight,
-                                info.baseDiffuseRoughness, info.specularTint, bRenderBackface);
+            PBRSetOpenPBRParams(pShaderAPI, params, DIELECTRICCOEFFICIENT, info.specularIor, info.specularWeight,
+                                info.baseDiffuseRoughness, info.specularTint, METALNESSTRANSITIONBIAS, bRenderBackface);
 
             // Setting up dynamic vertex shader
             DECLARE_DYNAMIC_VERTEX_SHADER(pulse_pbr_vs30);

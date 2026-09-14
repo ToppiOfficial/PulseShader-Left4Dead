@@ -25,6 +25,8 @@
 	$ambientocclusion "1"                                                      // Flat fallback; used only when $mraotexture is absent.
 	$specularior "1.5"                                                         // Dielectric index of refraction; 1.5 gives about 0.04 F0.
 	$specularweight "1"                                                        // Scales dielectric specular reflectance.
+	$dielectriccoefficient "0.04"                                              // Dielectric F0 at IOR 1.5 and weight 1; range 0..1.
+	$metalnesstransitionbias "1"                                               // Diffuse falloff exponent; try 2.407 for a faster fade toward metal.
 	$speculartint "[1 1 1]"                                                    // Metal reflectance tint at grazing angles.
 	$basediffuseroughness "0"                                                  // Diffuse Oren-Nayar roughness; 0 uses Lambert.
 

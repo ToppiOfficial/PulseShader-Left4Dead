@@ -1,4 +1,5 @@
 // STATIC:  "OUTLINE"                   "0..1"
+// STATIC:  "BASESHADETEXTURE"          "0..1"
 // STATIC:  "DETAILTEXTURE"             "0..1"
 // STATIC:  "SPECULARMASKTEXTURE"       "0..1"
 // STATIC:  "EMISSIVE"                  "0..1"
@@ -12,6 +13,7 @@
 // DYNAMIC: "FLASHLIGHTSHADOWS"         "0..1"
 
 // SKIP: ($OUTLINE == 1) && ($FLASHLIGHT == 1)
+// SKIP: ($OUTLINE == 1) && ($BASESHADETEXTURE == 1)
 // SKIP: ($OUTLINE == 1) && ($SPECULARMASKTEXTURE == 1)
 // SKIP: ($OUTLINE == 1) && ($EMISSIVE == 1)
 // SKIP: ($OUTLINE == 1) && ($ENVMAP == 1)
@@ -53,6 +55,9 @@ const float4 g_ShadowTweaks : register(PSREG_ENVMAP_TINT__SHADOW_TWEAKS);
 #endif
 
 sampler BaseSampler : register(s0);
+#if BASESHADETEXTURE
+sampler BaseShadeSampler : register(s10);
+#endif
 #if SPECULARMASKTEXTURE
 sampler SpecularMaskSampler : register(s1);
 #endif
@@ -108,10 +113,16 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 {
 	float4 baseSample = tex2D(BaseSampler, i.texCoord);
 	float baseAlpha = baseSample.a;
+#if BASESHADETEXTURE
+	float4 baseShadeSample = tex2D(BaseShadeSampler, i.texCoord);
+#endif
 #if DETAILTEXTURE
 	float4 detailSample = tex2D(DetailSampler, i.detailCoord);
 	detailSample.rgb *= g_DetailColor.rgb;
 	baseSample = TextureCombine(baseSample, detailSample, (int)g_DetailParams.x, g_DetailColor.a);
+#if BASESHADETEXTURE
+	baseShadeSample = TextureCombine(baseShadeSample, detailSample, (int)g_DetailParams.x, g_DetailColor.a);
+#endif
 #endif
 
 	float3 normal = normalize(i.worldNormal);
@@ -128,7 +139,11 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 	normal = NPRTwoSidedNormal(normal, faceSign);
 	float3 viewDirection = normalize(g_EyePos.xyz - i.worldPos);
 	float3 baseColor = baseSample.rgb;
+#if BASESHADETEXTURE
+	float3 shadowColor = baseShadeSample.rgb * g_ShadowTint.rgb;
+#else
 	float3 shadowColor = baseColor * g_ShadowTint.rgb;
+#endif
 	float3 color = 0.0;
 #if SPECULARMASKTEXTURE
 	float2 highlightMask = tex2D(SpecularMaskSampler, i.texCoord).rg;
