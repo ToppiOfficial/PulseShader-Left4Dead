@@ -45,6 +45,7 @@ struct NPR_Vars_t
 	int outlineAngle;
 	int outlineColor;
 	int outlineBaseBlend;
+	int outlineHSV;
 	int detailTexture;
 	int detailFrame;
 	int detailScale;
@@ -59,6 +60,7 @@ struct NPR_Vars_t
 
 BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 	BEGIN_SHADER_PARAMS;
+		SHADER_PARAM(MULTIPLY, SHADER_PARAM_TYPE_BOOL, "0", "Multiply transparency; cannot be combined with $additive");
 		SHADER_PARAM(BASESHADETEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Optional authored shadow-side base color");
 		SHADER_PARAM(SHADOWCOLOR, SHADER_PARAM_TYPE_COLOR, "[0.3 0.3 0.3]", "Tint applied to the base map on the shadow side of the cel step");
 		SHADER_PARAM(CELSHADESTEPS, SHADER_PARAM_TYPE_INTEGER, "0", "Intermediate cel-shading bands, clamped from 0 to 4");
@@ -88,6 +90,7 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 		SHADER_PARAM(OUTLINEANGLE, SHADER_PARAM_TYPE_FLOAT, "0", "Minimum view angle for outline expansion in degrees, 0 disables angle fading");
 		SHADER_PARAM(OUTLINECOLOR, SHADER_PARAM_TYPE_COLOR, "[0 0 0]", "Outline tint");
 		SHADER_PARAM(OUTLINEBASEBLEND, SHADER_PARAM_TYPE_FLOAT, "0", "Base texture contribution to the outline");
+		SHADER_PARAM(OUTLINEHSV, SHADER_PARAM_TYPE_VEC3, "[0 1 1]", "Outline hue shift in degrees, saturation multiplier, value multiplier");
 		SHADER_PARAM(DETAIL, SHADER_PARAM_TYPE_TEXTURE, "", "Detail texture");
 		SHADER_PARAM(DETAILFRAME, SHADER_PARAM_TYPE_INTEGER, "0", "Frame number for $detail");
 		SHADER_PARAM(DETAILSCALE, SHADER_PARAM_TYPE_FLOAT, "4", "Detail texture scale");
@@ -133,6 +136,7 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 		info.outlineAngle = OUTLINEANGLE;
 		info.outlineColor = OUTLINECOLOR;
 		info.outlineBaseBlend = OUTLINEBASEBLEND;
+		info.outlineHSV = OUTLINEHSV;
 		info.detailTexture = DETAIL;
 		info.detailFrame = DETAILFRAME;
 		info.detailScale = DETAILSCALE;
@@ -148,6 +152,17 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 	SHADER_INIT_PARAMS()
 	{
 		SET_FLAGS(MATERIAL_VAR_MODEL);
+		SET_PARAM_INT_IF_NOT_DEFINED(MULTIPLY, 0);
+		if (params[MULTIPLY]->GetIntValue() != 0)
+		{
+			if (IS_FLAG_SET(MATERIAL_VAR_ADDITIVE))
+			{
+				Warning("%s: $multiply and $additive cannot be combined; ignoring $multiply.\n", pMaterialName);
+				params[MULTIPLY]->SetIntValue(0);
+			}
+			else
+				SET_FLAGS(MATERIAL_VAR_TRANSLUCENT);
+		}
 		if (!params[SHADOWCOLOR]->IsDefined())
 			params[SHADOWCOLOR]->SetVecValue(0.3f, 0.3f, 0.3f);
 		SET_PARAM_INT_IF_NOT_DEFINED(CELSHADESTEPS, 0);
@@ -161,6 +176,10 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(OUTLINEWIDTH, 0.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(OUTLINEANGLE, 0.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(OUTLINEBASEBLEND, 0.0f);
+		if (!params[OUTLINECOLOR]->IsDefined())
+			params[OUTLINECOLOR]->SetVecValue(0.0f, 0.0f, 0.0f);
+		if (!params[OUTLINEHSV]->IsDefined())
+			params[OUTLINEHSV]->SetVecValue(0.0f, 1.0f, 1.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(REFLECTIONSTRENGTH, 1.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(ENVMAPALBEDOBOOST, 0.0f);
 
@@ -202,8 +221,10 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 		bool hasReflection = params[info.reflectionTexture]->IsTexture();
 		bool hasDetail = params[info.detailTexture]->IsTexture();
 		bool flashlight = UsingFlashlight(params);
+		bool multiply = params[MULTIPLY]->GetIntValue() != 0
+			&& !IS_FLAG_SET(MATERIAL_VAR_ADDITIVE);
 		bool eyelid = params[info.eyelid]->GetIntValue() != 0;
-		BlendType_t blendType = EvaluateBlendRequirements(info.baseTexture, true,
+		BlendType_t blendType = multiply ? BT_BLEND : EvaluateBlendRequirements(info.baseTexture, true,
 			info.detailTexture);
 		bool alphaTest = IS_FLAG_SET(MATERIAL_VAR_ALPHATEST);
 		bool fullyOpaque = blendType == BT_NONE && !alphaTest;
@@ -228,6 +249,8 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 				NPRSnapshotPassState(pShaderShadow, params, outline, renderBackfacePass,
 					flashlight, blendType,
 					alphaTest, params[info.alphaTestReference]->GetFloatValue());
+				if (multiply && !flashlight)
+					pShaderShadow->BlendFunc(SHADER_BLEND_DST_COLOR, SHADER_BLEND_ZERO);
 
 				pShaderShadow->EnableTexture(NPR_SAMPLER_BASE, true);
 				pShaderShadow->EnableSRGBRead(NPR_SAMPLER_BASE, true);
@@ -347,6 +370,12 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 				float outlineColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 				params[info.outlineColor]->GetVecValue(outlineColor, 3);
 				pShaderAPI->SetPixelShaderConstant(46, outlineColor);
+				if (outline)
+				{
+					float outlineHSV[4] = { 0.0f, 1.0f, 1.0f, 0.0f };
+					params[info.outlineHSV]->GetVecValue(outlineHSV, 3);
+					pShaderAPI->SetPixelShaderConstant(55, outlineHSV);
+				}
 
 				NPRSetDetailTint(pShaderAPI, params, info.detailTint, info.detailBlendFactor);
 				NPRSetRenderBackface(pShaderAPI, renderBackfacePass);
@@ -363,7 +392,7 @@ BEGIN_NPR_SHADER(PulseNPR, "Cel character rendering for models")
 
 				float celShadeParams[4] = {
 					(float)MIN(MAX(params[info.celShadeSteps]->GetIntValue(), 0), 4),
-					0.0f, 0.0f, 0.0f
+					multiply ? 1.0f : 0.0f, 0.0f, 0.0f
 				};
 				pShaderAPI->SetPixelShaderConstant(54, celShadeParams);
 				SetPixelShaderConstant(PSREG_CONSTANT_37, COLOR2);

@@ -54,6 +54,25 @@ Use Source's standard blend modes and honor their depth-write and
 destination-alpha implications. A specialized shader may omit transparency
 controls when base alpha carries shader data, as PulseToonEye does for its iris.
 
+`PulseNPR` additionally supports `$multiply 1` (default `0`). Its surface and
+outline passes multiply the background by the shaded color, with base-texture
+alpha and `$alpha` fading the effect to neutral white. `$translucent 1` is
+implied; depth and destination-alpha writes are disabled. Fog fades the
+multiplication to white, and the flashlight retains its standard additive
+lighting pass. `$multiply` and `$additive` are mutually exclusive: specifying
+both emits a warning and disables `$multiply`. This parameter is exclusive to
+`PulseNPR`.
+
+`PulseNPR` and `PulseUmamusume` support `$outlinehsv "[0 1 1]"`: hue shift in
+degrees (wrapping every 360), saturation multiplier, and value multiplier. It
+adjusts the linear RGB outline after `$outlinecolor` and `$outlinebaseblend`,
+before lighting, material color modulation, and fog. `[0 1 1]` leaves the color
+unchanged; `[0 1.5 1]` increases saturation by 50%. Saturation is capped at 1;
+negative saturation/value multipliers are treated as zero. Gray stays gray and black
+stays black, so use a nonblack `$outlinecolor` to make the adjustment visible.
+Future NPR variants should use the same outline HSV control. `PulseGirlsFrontline`
+keeps its current outline system without `$outlinehsv`.
+
 ## Adding a variant
 
 Variants are siblings, never subclasses of each other. `BEGIN_INHERITED_SHADER`

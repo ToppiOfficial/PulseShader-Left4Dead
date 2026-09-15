@@ -41,6 +41,7 @@ struct NPR_Vars_t
 	int outlineAngle;
 	int outlineColor;
 	int outlineBaseBlend;
+	int outlineHSV;
 	int detailTexture;
 	int detailFrame;
 	int detailScale;
@@ -87,6 +88,7 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 		SHADER_PARAM(OUTLINEANGLE, SHADER_PARAM_TYPE_FLOAT, "0", "Minimum view angle for outline expansion in degrees, 0 disables angle fading");
 		SHADER_PARAM(OUTLINECOLOR, SHADER_PARAM_TYPE_COLOR, "[0 0 0]", "Outline tint");
 		SHADER_PARAM(OUTLINEBASEBLEND, SHADER_PARAM_TYPE_FLOAT, "0", "Base texture contribution to the outline");
+		SHADER_PARAM(OUTLINEHSV, SHADER_PARAM_TYPE_VEC3, "[0 1 1]", "Outline hue shift in degrees, saturation multiplier, value multiplier");
 		SHADER_PARAM(DETAIL, SHADER_PARAM_TYPE_TEXTURE, "", "Detail texture");
 		SHADER_PARAM(DETAILFRAME, SHADER_PARAM_TYPE_INTEGER, "0", "Frame number for $detail");
 		SHADER_PARAM(DETAILSCALE, SHADER_PARAM_TYPE_FLOAT, "4", "Detail texture scale");
@@ -135,6 +137,7 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 		info.outlineAngle = OUTLINEANGLE;
 		info.outlineColor = OUTLINECOLOR;
 		info.outlineBaseBlend = OUTLINEBASEBLEND;
+		info.outlineHSV = OUTLINEHSV;
 		info.detailTexture = DETAIL;
 		info.detailFrame = DETAILFRAME;
 		info.detailScale = DETAILSCALE;
@@ -165,6 +168,8 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(OUTLINEWIDTH, 0.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(OUTLINEANGLE, 0.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(OUTLINEBASEBLEND, 0.0f);
+		if (!params[OUTLINEHSV]->IsDefined())
+			params[OUTLINEHSV]->SetVecValue(0.0f, 1.0f, 1.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(AOSTRENGTH, 1.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(FACECHEEKSPREAD, 1.0f);
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(FACEYAW, 270.0f);
@@ -351,6 +356,12 @@ BEGIN_NPR_SHADER(PulseUmamusume, "Umamusume character rendering for models")
 				float outlineColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 				params[info.outlineColor]->GetVecValue(outlineColor, 3);
 				pShaderAPI->SetPixelShaderConstant(46, outlineColor);
+				if (outline)
+				{
+					float outlineHSV[4] = { 0.0f, 1.0f, 1.0f, 0.0f };
+					params[info.outlineHSV]->GetVecValue(outlineHSV, 3);
+					pShaderAPI->SetPixelShaderConstant(55, outlineHSV);
+				}
 				NPRSetDetailTint(pShaderAPI, params, info.detailTint, info.detailBlendFactor);
 				NPRSetRenderBackface(pShaderAPI, renderBackfacePass);
 				// A zero width still leaves a hairline at the silhouette, so it gates the

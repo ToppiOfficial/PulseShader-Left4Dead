@@ -33,6 +33,9 @@ const float4 g_Highlight : register(c3);
 const float4 g_Specular : register(c10);
 const float4 g_AoAndOutline : register(c26);
 const float4 g_OutlineColor : register(c46);
+#if OUTLINE
+const float4 g_OutlineHSV : register(c55);
+#endif
 const float4 g_DetailColor : register(c47);
 const float4 g_DetailParams : register(c48);
 const float4 g_OpacityParams : register(c49);
@@ -183,6 +186,7 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 	float3 outlineTint = saturate(g_OutlineColor.rgb);
 	float3 outlineBase = lerp(outlineTint,
 		baseSample.rgb * toonSample.rgb * 0.5 * outlineTint, g_AoAndOutline.y);
+	outlineBase = NPRAdjustOutlineHSV(outlineBase, g_OutlineHSV.xyz);
 	float3 color = outlineBase * saturate(lighting);
 #else
 	float3 normal = normalize(i.worldNormal);

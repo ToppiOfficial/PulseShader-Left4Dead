@@ -48,6 +48,7 @@
 	$outlineangle "0"                                                          // Minimum expansion angle in degrees; 0 disables angle fading.
 	$outlinecolor "[0 0 0]"                                                    // Outline color.
 	$outlinebaseblend "0"                                                      // Base texture contribution to the outline.
+	$outlinehsv "[0 1 1]"                                                      // Hue shift in degrees, saturation/value multipliers after outline color/base blend.
 
 	$detail "models/your_model/detail"                                         // Detail texture combined with the base color.
 	$detailframe "0"                                                           // Animation frame for $detail; requires $detail.

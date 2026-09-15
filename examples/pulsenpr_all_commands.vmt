@@ -14,6 +14,7 @@
 	$alphatestreference "0.5"                                                  // Cutout threshold; requires $alphatest 1.
 	$translucent "0"                                                           // Enables standard alpha blending.
 	$additive "0"                                                              // Enables additive blending; $translucent weights it by alpha.
+	$multiply "0"                                                              // Multiplies the background by shaded color; cannot combine with $additive.
 	$nocull "0"                                                                // Draws both sides when enabled.
 	$nodecal "0"                                                               // Prevents projected decals from drawing on this material.
 	$renderbackface "0"                                                        // Draws backfaces with reversed shading normals; $nocull wins.
@@ -47,6 +48,7 @@
 	$outlineangle "0"                                                          // Minimum expansion angle in degrees; 0 disables angle fading.
 	$outlinecolor "[0 0 0]"                                                    // Outline color.
 	$outlinebaseblend "0"                                                      // Base texture contribution to the outline.
+	$outlinehsv "[0 1 1]"                                                      // Hue shift (degrees), saturation/value multipliers after outline color/base blend; [0 1.5 1] boosts saturation.
 	$eyelid "0"                                                                // Pulls lashes or brows through front hair as opaque geometry and disables their outline.
 
 	$detail "models/your_model/detail"                                         // Detail texture combined with the base color.

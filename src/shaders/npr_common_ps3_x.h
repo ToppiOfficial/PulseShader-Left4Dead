@@ -18,6 +18,31 @@
 static const float NPR_LIGHT_SCALE = 0.7;
 const float4 g_RenderBackface : register(c53);
 
+#if OUTLINE
+float3 NPRAdjustOutlineHSV(float3 color, float3 hsv)
+{
+	if (all(hsv == float3(0.0, 1.0, 1.0)))
+		return color;
+
+	color = max(color, 0.0);
+	float value = max(color.r, max(color.g, color.b));
+	float chroma = value - min(color.r, min(color.g, color.b));
+	float hue = 0.0;
+	if (chroma > 0.0)
+	{
+		if (value == color.r) hue = (color.g - color.b) / chroma;
+		else if (value == color.g) hue = (color.b - color.r) / chroma + 2.0;
+		else hue = (color.r - color.g) / chroma + 4.0;
+	}
+	float saturation = value > 0.0 ? chroma / value : 0.0;
+	hue = frac(hue / 6.0 + hsv.x / 360.0);
+	saturation = saturate(saturation * max(hsv.y, 0.0));
+	value *= max(hsv.z, 0.0);
+	float3 hueColor = saturate(abs(frac(hue + float3(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0);
+	return value * lerp(1.0, hueColor, saturation);
+}
+#endif
+
 float3 NPRTwoSidedNormal(float3 normal, float faceSign)
 {
 	return g_RenderBackface.x != 0.0 ? normal * faceSign : normal;
