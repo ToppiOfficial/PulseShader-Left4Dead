@@ -1,4 +1,5 @@
 // STATIC:  "BASESHADE"                 "0..1"
+// STATIC:  "EYEWHITETEXTURE"           "0..1"
 // STATIC:  "LIGHTWARP"                 "0..1"
 // STATIC:  "ENVMAP"                    "0..1"
 // STATIC:  "FLASHLIGHT"                "0..1"
@@ -55,6 +56,9 @@ sampler SpecularSampler  : register(s2); // eyeball-UV shine mask
 sampler LightWarpSampler : register(s3); // 1D diffuse ramp
 #endif
 sampler SelfIllumSampler : register(s8); // selfillum mask, black when unused
+#if EYEWHITETEXTURE
+sampler EyeWhiteSampler  : register(s7);
+#endif
 #if ENVMAP
 samplerCUBE EnvmapSampler : register(s9);
 #endif
@@ -136,6 +140,11 @@ float4 main(PS_INPUT i) : COLOR
 	float3 regionTint = lerp(g_IrisColor.rgb, g_EyeWhiteColor.rgb, tintMask);
 	float3 baseCol = base.rgb * regionTint;
 	float3 shadeCol = shade.rgb * regionTint;
+#if EYEWHITETEXTURE
+	float3 eyeWhite = tex2D(EyeWhiteSampler, sphereUv).rgb * g_EyeWhiteColor.rgb;
+	baseCol = lerp(baseCol, eyeWhite, tintMask);
+	shadeCol = lerp(shadeCol, eyeWhite, tintMask);
+#endif
 	// Fold the region tint into the additive shine too, so $iriscolor/$eyewhitecolor
 	// scale the whole region and 0 0 0 reads fully black instead of leaving the glint.
 	specColor *= regionTint;
@@ -168,10 +177,10 @@ float4 main(PS_INPUT i) : COLOR
 		* baseCol * g_EnvmapTint.rgb * g_EnvmapTint.a * reflectMask;
 #endif
 
-	// Selfillum: masked pixels read as unlit eye color. The mask is the texture's red
+	// Selfillum: masked pixels keep at least the tinted unlit eye color. The mask is the texture's red
 	// when one is bound, otherwise the iris - the non-opaque part of the base map.
 	float emissive = lerp(1.0 - mask, tex2D(SelfIllumSampler, sphereUv).r, g_EyeParams.w);
-	color = lerp(color, baseCol * g_SelfIllumTint.rgb, emissive * g_SelfIllumTint.a);
+	color = max(color, baseCol * g_SelfIllumTint.rgb * emissive * g_SelfIllumTint.a);
 #endif
 
 #if EYELID

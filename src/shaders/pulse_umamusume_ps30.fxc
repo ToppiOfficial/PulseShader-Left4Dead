@@ -225,6 +225,9 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 	ambient = max(ambient, g_Specular.w);
 #endif
 	float3 effectLighting = ambient;
+#if !FACE
+	float3 rimLighting = ambient;
+#endif
 #if FACE
 	// The face masks are authored against a single directional light, so one key light
 	// drives them. Picking the strongest beats averaging directions, which would aim the
@@ -240,6 +243,9 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 		float3 lightColor = PixelShaderGetLightColor(cLightInfo, lightIndex)
 			* NPRGetLightAtten(i.lightAtten, lightIndex) * NPR_LIGHT_SCALE;
 		effectLighting += lightColor;
+#if !FACE
+		rimLighting += lightColor * saturate(dot(normal, lightDirection));
+#endif
 #if FACE
 		float score = max(lightColor.r, max(lightColor.g, lightColor.b));
 		if (score > keyScore)
@@ -265,9 +271,10 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 		keyDirection, faceForward, faceUp, faceSide) * effectLighting;
 #else
 	float effectVisibility = saturate(max(effectLighting.r, max(effectLighting.g, effectLighting.b)));
+	float rimVisibility = saturate(max(rimLighting.r, max(rimLighting.g, rimLighting.b)));
 	float rimEdge = saturate(dot(normal, viewDirection)) - g_DetailParams.z;
 	float rim = 1.0 - NPRCelStep(rimEdge);
-	color += baseColor * g_Highlight.rgb * optionMask.b * g_DetailParams.w * rim * effectVisibility;
+	color += baseColor * g_Highlight.rgb * optionMask.b * g_DetailParams.w * rim * rimVisibility;
 	float2 reflectionCoord = NPRTwoSidedNormal(normalize(i.viewNormal), faceSign).xy * 0.5 + 0.5;
 	float2 reflection = tex2D(ReflectionSampler, reflectionCoord).rg;
 	float reflectionMask = saturate(optionMask.r * g_ReflectionAdd.a) * effectVisibility;

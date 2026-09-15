@@ -40,6 +40,8 @@ struct ToonEye_Vars_t
 	int envMapScale;
 	int irisColor;
 	int eyeWhiteColor;
+	int eyeWhiteTexture;
+	int eyeWhiteTextureFrame;
 	int irisScale;
 	int irisMaskReference;
 	int irisMaskSoftness;
@@ -68,10 +70,12 @@ BEGIN_NPR_SHADER(PulseToonEye, "Toon eyeball shader: eyerefract projection with 
 		SHADER_PARAM(ENVMAPSCALE, SHADER_PARAM_TYPE_FLOAT, "1", "Linear brightness scale for the reflection, unbounded");
 		SHADER_PARAM(IRISCOLOR, SHADER_PARAM_TYPE_COLOR, "[1 1 1]", "Tints the iris (low base alpha); the eyewhite is left untinted");
 		SHADER_PARAM(EYEWHITECOLOR, SHADER_PARAM_TYPE_COLOR, "[1 1 1]", "Tints the eyewhite (opaque base alpha); the iris is left untinted");
+		SHADER_PARAM(EYEWHITETEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Optional eye-white color projected under the base texture iris mask");
+		SHADER_PARAM(EYEWHITETEXTUREFRAME, SHADER_PARAM_TYPE_INTEGER, "0", "Frame number for $eyewhitetexture");
 		SHADER_PARAM(IRISSCALE, SHADER_PARAM_TYPE_FLOAT, "1", "Scales the iris and its specular in UV space; 1 is authored size. Proxy-drivable post control on top of the mdl eyeball size");
 		SHADER_PARAM(IRISMASKREFERENCE, SHADER_PARAM_TYPE_FLOAT, "0.5", "Base-alpha value where the iris/eyewhite tint boundary sits, like $alphatestreference");
 		SHADER_PARAM(IRISMASKSOFTNESS, SHADER_PARAM_TYPE_FLOAT, "0", "Extra width added to the screen-space anti-aliased boundary; 0 is a crisp ~2px edge");
-		SHADER_PARAM(SELFILLUMMASK, SHADER_PARAM_TYPE_TEXTURE, "", "Selfillum mask (red); masked pixels read as unlit eye color");
+		SHADER_PARAM(SELFILLUMMASK, SHADER_PARAM_TYPE_TEXTURE, "", "Selfillum mask (red); masked pixels keep at least the tinted unlit eye color");
 		SHADER_PARAM(SELFILLUMMASKFRAME, SHADER_PARAM_TYPE_INTEGER, "0", "Frame number for $selfillummask");
 		SHADER_PARAM(SELFILLUMTINT, SHADER_PARAM_TYPE_COLOR, "[1 1 1]", "Selfillum tint");
 		SHADER_PARAM(EYELID, SHADER_PARAM_TYPE_BOOL, "0", "Draw over the front hair: the iris reads through the bangs");
@@ -106,6 +110,8 @@ BEGIN_NPR_SHADER(PulseToonEye, "Toon eyeball shader: eyerefract projection with 
 		info.envMapScale = ENVMAPSCALE;
 		info.irisColor = IRISCOLOR;
 		info.eyeWhiteColor = EYEWHITECOLOR;
+		info.eyeWhiteTexture = EYEWHITETEXTURE;
+		info.eyeWhiteTextureFrame = EYEWHITETEXTUREFRAME;
 		info.irisScale = IRISSCALE;
 		info.irisMaskReference = IRISMASKREFERENCE;
 		info.irisMaskSoftness = IRISMASKSOFTNESS;
@@ -140,6 +146,11 @@ BEGIN_NPR_SHADER(PulseToonEye, "Toon eyeball shader: eyerefract projection with 
 		SET_PARAM_FLOAT_IF_NOT_DEFINED(IRISMASKSOFTNESS, 0.0f);
 		if (!params[SELFILLUMTINT]->IsDefined())
 			params[SELFILLUMTINT]->SetVecValue(1.0f, 1.0f, 1.0f);
+		if (!params[IRISCOLOR]->IsDefined())
+			params[IRISCOLOR]->SetVecValue(1.0f, 1.0f, 1.0f);
+		if (!params[EYEWHITECOLOR]->IsDefined())
+			params[EYEWHITECOLOR]->SetVecValue(1.0f, 1.0f, 1.0f);
+		SET_PARAM_INT_IF_NOT_DEFINED(EYEWHITETEXTUREFRAME, 0);
 
 		NPRSetFlashlightTexturePath(params);
 	}
@@ -155,6 +166,7 @@ BEGIN_NPR_SHADER(PulseToonEye, "Toon eyeball shader: eyerefract projection with 
 		SetupVars(info);
 		LoadTexture(info.flashlightTexture);
 		if (params[info.baseTexture]->IsDefined()) LoadTexture(info.baseTexture);
+		if (params[info.eyeWhiteTexture]->IsDefined()) LoadTexture(info.eyeWhiteTexture);
 		if (params[info.shadeTexture]->IsDefined()) LoadTexture(info.shadeTexture);
 		if (params[info.specularTexture]->IsDefined()) LoadTexture(info.specularTexture);
 		if (params[info.lightWarpTexture]->IsDefined()) LoadTexture(info.lightWarpTexture);
@@ -170,6 +182,7 @@ BEGIN_NPR_SHADER(PulseToonEye, "Toon eyeball shader: eyerefract projection with 
 		SetupVars(info);
 
 		bool hasBase = params[info.baseTexture]->IsTexture();
+		bool hasEyeWhite = params[info.eyeWhiteTexture]->IsTexture();
 		bool hasShade = params[info.shadeTexture]->IsTexture();
 		bool hasSpecular = params[info.specularTexture]->IsTexture();
 		bool hasLightWarp = params[info.lightWarpTexture]->IsTexture();
@@ -212,8 +225,13 @@ BEGIN_NPR_SHADER(PulseToonEye, "Toon eyeball shader: eyerefract projection with 
 				pShaderShadow->EnableSRGBRead(SHADER_SAMPLER1, true);
 				pShaderShadow->EnableTexture(SHADER_SAMPLER2, true); // specular shine (color)
 				pShaderShadow->EnableSRGBRead(SHADER_SAMPLER2, true);
-				pShaderShadow->EnableTexture(SHADER_SAMPLER8, true); // selfillum mask
-				pShaderShadow->EnableSRGBRead(SHADER_SAMPLER8, false);
+			pShaderShadow->EnableTexture(SHADER_SAMPLER8, true); // selfillum mask
+			pShaderShadow->EnableSRGBRead(SHADER_SAMPLER8, false);
+			if (hasEyeWhite)
+			{
+				pShaderShadow->EnableTexture(SHADER_SAMPLER7, true);
+				pShaderShadow->EnableSRGBRead(SHADER_SAMPLER7, true);
+			}
 				if (hasLightWarp)
 				{
 					pShaderShadow->EnableTexture(SHADER_SAMPLER3, true);
@@ -237,7 +255,8 @@ BEGIN_NPR_SHADER(PulseToonEye, "Toon eyeball shader: eyerefract projection with 
 				SET_STATIC_VERTEX_SHADER(pulse_tooneye_vs30);
 
 				DECLARE_STATIC_PIXEL_SHADER(pulse_tooneye_ps30);
-				SET_STATIC_PIXEL_SHADER_COMBO(BASESHADE, hasShade);
+			SET_STATIC_PIXEL_SHADER_COMBO(BASESHADE, hasShade);
+			SET_STATIC_PIXEL_SHADER_COMBO(EYEWHITETEXTURE, hasEyeWhite);
 				SET_STATIC_PIXEL_SHADER_COMBO(LIGHTWARP, hasLightWarp);
 				SET_STATIC_PIXEL_SHADER_COMBO(ENVMAP, envmap);
 				SET_STATIC_PIXEL_SHADER_COMBO(FLASHLIGHT, flashlight);
@@ -258,8 +277,9 @@ BEGIN_NPR_SHADER(PulseToonEye, "Toon eyeball shader: eyerefract projection with 
 				if (hasSpecular) BindTexture(SHADER_SAMPLER2, info.specularTexture, info.specularTextureFrame);
 				else pShaderAPI->BindStandardTexture(SHADER_SAMPLER2, TEXTURE_BLACK);
 				if (hasLightWarp) BindTexture(SHADER_SAMPLER3, info.lightWarpTexture, 0);
-				if (hasSelfIllumMask) BindTexture(SHADER_SAMPLER8, info.selfIllumMask, info.selfIllumMaskFrame);
-				else pShaderAPI->BindStandardTexture(SHADER_SAMPLER8, TEXTURE_BLACK);
+			if (hasSelfIllumMask) BindTexture(SHADER_SAMPLER8, info.selfIllumMask, info.selfIllumMaskFrame);
+			else pShaderAPI->BindStandardTexture(SHADER_SAMPLER8, TEXTURE_BLACK);
+			if (hasEyeWhite) BindTexture(SHADER_SAMPLER7, info.eyeWhiteTexture, info.eyeWhiteTextureFrame);
 				if (envmap) BindTexture(SAMPLER_ENVMAP, info.envMap, 0);
 
 				// c0: $color (.a = $alpha), c49: $color2 - both stack in the PS.

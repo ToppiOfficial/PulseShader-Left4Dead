@@ -166,6 +166,7 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 	ambient = max(ambient, g_Specular.w);
 #endif
 	float3 effectLighting = ambient;
+	float3 rimLighting = ambient;
 	float3 ambientDirection = float3(
 		dot(cAmbientCube[0] - cAmbientCube[1], float3(0.2125, 0.7154, 0.0721)),
 		dot(cAmbientCube[2] - cAmbientCube[3], float3(0.2125, 0.7154, 0.0721)),
@@ -181,6 +182,7 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 		float3 lightColor = PixelShaderGetLightColor(cLightInfo, lightIndex)
 			* NPRGetLightAtten(i.lightAtten, lightIndex) * NPR_LIGHT_SCALE;
 		effectLighting += lightColor;
+		rimLighting += lightColor * saturate(dot(normal, lightDirection));
 		// Accumulate at the light's true magnitude so brightness tracks the source,
 		// rather than snapping between a flat-lit tone and the ambient floor.
 		color += ShadeSurface(baseColor, shadowColor, normal, viewDirection,
@@ -190,9 +192,10 @@ float4 main(PS_INPUT i, float faceSign : VFACE) : COLOR
 	// Matcap reflection: additive in red, multiplicative in green, indexed by the
 	// view-space normal. This is the slot MMD's spa and sph maps use.
 	float effectVisibility = saturate(max(effectLighting.r, max(effectLighting.g, effectLighting.b)));
+	float rimVisibility = saturate(max(rimLighting.r, max(rimLighting.g, rimLighting.b)));
 	float rimEdge = saturate(dot(normal, viewDirection)) - g_DetailParams.y;
 	float rim = 1.0 - NPRCelStep(rimEdge);
-	color += baseColor * highlightMask.g * g_DetailParams.w * rim * effectVisibility;
+	color += baseColor * highlightMask.g * g_DetailParams.w * rim * rimVisibility;
 #if ENVMAP
 	float3 envColor = ENV_MAP_SCALE * texCUBE(EnvmapSampler,
 		reflect(-viewDirection, normal)).rgb;
