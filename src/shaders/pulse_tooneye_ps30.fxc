@@ -1,5 +1,6 @@
 // STATIC:  "BASESHADE"                 "0..1"
 // STATIC:  "EYEWHITETEXTURE"           "0..1"
+// STATIC:  "EYEWHITESHADETEXTURE"      "0..1"
 // STATIC:  "LIGHTWARP"                 "0..1"
 // STATIC:  "ENVMAP"                    "0..1"
 // STATIC:  "FLASHLIGHT"                "0..1"
@@ -59,6 +60,9 @@ sampler SelfIllumSampler : register(s8); // selfillum mask, black when unused
 #if EYEWHITETEXTURE
 sampler EyeWhiteSampler  : register(s7);
 #endif
+#if EYEWHITESHADETEXTURE
+sampler EyeWhiteShadeSampler : register(s10);
+#endif
 #if ENVMAP
 samplerCUBE EnvmapSampler : register(s9);
 #endif
@@ -81,7 +85,7 @@ struct PS_INPUT
 // One light's contribution: a half-lambert shade->base transition plus the
 // $speculartexture glint. The lightwarp ramp, when present, remaps the falloff.
 float3 EyeShade(float3 baseCol, float3 shadeCol, float3 specColor,
-	float3 normal, float3 viewDir, float3 lightDir)
+	float3 normal, float3 viewDir, float3 lightDir, float shadeBlend)
 {
 	float nDotL = dot(normal, lightDir);
 	float diffuse = pow(saturate(nDotL * 0.5 + 0.5), 2.0);
@@ -90,13 +94,8 @@ float3 EyeShade(float3 baseCol, float3 shadeCol, float3 specColor,
 #else
 	float3 lit = diffuse;
 #endif
-#if BASESHADE
-	float3 diffuseColor = lerp(shadeCol, baseCol, saturate(lit));
-#else
-	// No shade map: shade the base directly by the (optionally warped) falloff, like a
-	// regular vertexlit/lightwarp surface, instead of the flat toon shade->base blend.
-	float3 diffuseColor = baseCol * saturate(lit);
-#endif
+	float3 diffuseColor = lerp(baseCol * saturate(lit),
+		lerp(shadeCol, baseCol, saturate(lit)), shadeBlend);
 
 	// The shine map adds an additive highlight in its own colour that just follows the
 	// general diffuse - no sharp cutoff, sitting on top of the color instead of blending.
@@ -140,10 +139,16 @@ float4 main(PS_INPUT i) : COLOR
 	float3 regionTint = lerp(g_IrisColor.rgb, g_EyeWhiteColor.rgb, tintMask);
 	float3 baseCol = base.rgb * regionTint;
 	float3 shadeCol = shade.rgb * regionTint;
+	float shadeBlend = BASESHADE;
 #if EYEWHITETEXTURE
 	float3 eyeWhite = tex2D(EyeWhiteSampler, sphereUv).rgb * g_EyeWhiteColor.rgb;
 	baseCol = lerp(baseCol, eyeWhite, tintMask);
 	shadeCol = lerp(shadeCol, eyeWhite, tintMask);
+#endif
+#if EYEWHITESHADETEXTURE
+	float3 eyeWhiteShade = tex2D(EyeWhiteShadeSampler, sphereUv).rgb * g_EyeWhiteColor.rgb;
+	shadeCol = lerp(shadeCol, eyeWhiteShade, tintMask);
+	shadeBlend = lerp(shadeBlend, 1.0, tintMask);
 #endif
 	// Fold the region tint into the additive shine too, so $iriscolor/$eyewhitecolor
 	// scale the whole region and 0 0 0 reads fully black instead of leaving the glint.
@@ -153,7 +158,7 @@ float4 main(PS_INPUT i) : COLOR
 #if FLASHLIGHT
 	float3 flashlightDir;
 	float3 intensity = NPRFlashlightIntensity(i.worldPos, i.projPos, flashlightDir);
-	color = EyeShade(baseCol, shadeCol, specColor, normal, viewDir, flashlightDir) * intensity;
+	color = EyeShade(baseCol, shadeCol, specColor, normal, viewDir, flashlightDir, shadeBlend) * intensity;
 #else
 	float3 ambient = PixelShaderAmbientLight(normal, cAmbientCube);
 #if (NUM_LIGHTS == 0)
@@ -165,7 +170,7 @@ float4 main(PS_INPUT i) : COLOR
 		float3 lightDir = normalize(PixelShaderGetLightVector(i.worldPos, cLightInfo, lightIndex));
 		float3 lightColor = PixelShaderGetLightColor(cLightInfo, lightIndex)
 			* NPRGetLightAtten(i.lightAtten, lightIndex) * NPR_LIGHT_SCALE;
-		color += EyeShade(baseCol, shadeCol, specColor, normal, viewDir, lightDir) * lightColor;
+		color += EyeShade(baseCol, shadeCol, specColor, normal, viewDir, lightDir, shadeBlend) * lightColor;
 	}
 
 	// Metal-like reflection: the cube is tinted by the iris color and $envmaptint,

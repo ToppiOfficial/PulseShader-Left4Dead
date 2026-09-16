@@ -19,6 +19,10 @@
 	$envmapscale "1"                                                           // Unbounded linear reflection brightness; requires $envmap.
 	$iriscolor "[1 1 1]"                                                       // Tints the low-base-alpha iris region.
 	$eyewhitecolor "[1 1 1]"                                                   // Tints the high-base-alpha eyewhite region.
+	$eyewhitetexture "models/your_model/eye_white"                             // sRGB lit eyewhite color under the base-alpha mask.
+	$eyewhitetextureframe "0"                                                  // Animation frame for $eyewhitetexture.
+	$eyewhiteshadetexture "models/your_model/eye_white_shade"                   // Optional sRGB shadow eyewhite color.
+	$eyewhiteshadetextureframe "0"                                             // Animation frame for $eyewhiteshadetexture.
 	$irisscale "1"                                                             // Iris and shine UV scale; values must be above 0.
 	$irismaskreference "0.5"                                                   // Base-alpha boundary between iris and eyewhite.
 	$irismasksoftness "0"                                                      // Extra boundary width; 0 keeps the anti-aliased edge crisp.
